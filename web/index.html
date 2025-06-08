@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamLearn - Plataforma de Video Tutoriales</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#1a73e8">
+    <!-- Video.js CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.0.4/video-js.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1>StreamLearn</h1>
+            </div>
+            <div class="nav-menu">
+                <ul class="nav-list">
+                    <li><a href="#home" class="nav-link active">Inicio</a></li>
+                    <li><a href="#videos" class="nav-link">Videos</a></li>
+                    <li><a href="#upload" class="nav-link auth-required">Subir</a></li>
+                    <li><a href="#profile" class="nav-link auth-required">Perfil</a></li>
+                </ul>
+            </div>
+            <div class="nav-auth">
+                <button id="loginBtn" class="btn btn-outline">Iniciar Sesión</button>
+                <button id="registerBtn" class="btn btn-primary">Registrarse</button>
+                <div id="userMenu" class="user-menu hidden">
+                    <button class="user-avatar" id="userAvatar">
+                        <img src="/static/assets/default-avatar.png" alt="Avatar" id="avatarImg">
+                    </button>
+                    <div class="dropdown-menu" id="dropdownMenu">
+                        <a href="#profile">Mi Perfil</a>
+                        <a href="#my-videos">Mis Videos</a>
+                        <a href="#settings">Configuración</a>
+                        <hr>
+                        <a href="#logout" id="logoutBtn">Cerrar Sesión</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Section -->
+        <section id="home" class="section active">
+            <div class="hero">
+                <div class="hero-content">
+                    <h2>Aprende con los mejores tutoriales en video</h2>
+                    <p>Descubre miles de tutoriales de programación, diseño, marketing y más.</p>
+                    <button class="btn btn-large btn-primary" id="exploreBtn">Explorar Videos</button>
+                </div>
+                <div class="hero-image">
+                    <div class="video-preview">
+                        <div class="play-button"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Featured Videos -->
+            <div class="featured-section">
+                <h3>Videos Destacados</h3>
+                <div class="video-grid" id="featuredVideos">
+                    <!-- Videos will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Categories -->
+            <div class="categories-section">
+                <h3>Categorías Populares</h3>
+                <div class="categories-grid">
+                    <div class="category-card" data-category="programming">
+                        <div class="category-icon">💻</div>
+                        <h4>Programación</h4>
+                        <p>JavaScript, Python, Java, C++</p>
+                    </div>
+                    <div class="category-card" data-category="design">
+                        <div class="category-icon">🎨</div>
+                        <h4>Diseño</h4>
+                        <p>UI/UX, Figma, Photoshop</p>
+                    </div>
+                    <div class="category-card" data-category="marketing">
+                        <div class="category-icon">📈</div>
+                        <h4>Marketing</h4>
+                        <p>Digital, SEO, Redes Sociales</p>
+                    </div>
+                    <div class="category-card" data-category="business">
+                        <div class="category-icon">💼</div>
+                        <h4>Negocios</h4>
+                        <p>Emprendimiento, Finanzas</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Videos Section -->
+        <section id="videos" class="section">
+            <div class="videos-header">
+                <h2>Explorar Videos</h2>
+                <div class="search-filters">
+                    <div class="search-box">
+                        <input type="text" id="searchInput" placeholder="Buscar videos..." />
+                        <button id="searchBtn">🔍</button>
+                    </div>
+                    <div class="filters">
+                        <select id="categoryFilter">
+                            <option value="">Todas las categorías</option>
+                            <option value="programming">Programación</option>
+                            <option value="design">Diseño</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="business">Negocios</option>
+                        </select>
+                        <select id="sortFilter">
+                            <option value="newest">Más recientes</option>
+                            <option value="popular">Más populares</option>
+                            <option value="rating">Mejor valorados</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="videos-container">
+                <div class="video-grid" id="videosGrid">
+                    <!-- Videos will be loaded here -->
+                </div>
+                <div class="loading" id="videosLoading">
+                    <div class="spinner"></div>
+                    <p>Cargando videos...</p>
+                </div>
+                <div class="pagination" id="videosPagination">
+                    <!-- Pagination will be rendered here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Upload Section -->
+        <section id="upload" class="section auth-required">
+            <div class="upload-container">
+                <h2>Subir Video Tutorial</h2>
+                <form id="uploadForm" class="upload-form">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">📹</div>
+                        <p>Arrastra tu video aquí o haz clic para seleccionar</p>
+                        <input type="file" id="videoFile" accept="video/*" hidden>
+                        <button type="button" class="btn btn-outline" id="selectFileBtn">Seleccionar Archivo</button>
+                    </div>
+                    
+                    <div class="upload-details hidden" id="uploadDetails">
+                        <div class="file-info" id="fileInfo">
+                            <!-- File info will be displayed here -->
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="videoTitle">Título del Video *</label>
+                            <input type="text" id="videoTitle" required maxlength="255">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="videoDescription">Descripción</label>
+                            <textarea id="videoDescription" rows="4" maxlength="2000"></textarea>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="videoCategory">Categoría *</label>
+                                <select id="videoCategory" required>
+                                    <option value="">Seleccionar categoría</option>
+                                    <option value="programming">Programación</option>
+                                    <option value="design">Diseño</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="business">Negocios</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="videoTags">Tags (separados por coma)</label>
+                                <input type="text" id="videoTags" placeholder="javascript, tutorial, principiantes">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="videoPublic" checked>
+                                <span class="checkmark"></span>
+                                Hacer público este video
+                            </label>
+                        </div>
+                        
+                        <div class="upload-progress hidden" id="uploadProgress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                            <p id="progressText">Subiendo: 0%</p>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-outline" id="cancelUpload">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="uploadSubmit">Subir Video</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Profile Section -->
+        <section id="profile" class="section auth-required">
+            <div class="profile-container">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <img src="/static/assets/default-avatar.png" alt="Avatar" id="profileAvatar">
+                        <button class="avatar-upload">📷</button>
+                    </div>
+                    <div class="profile-info">
+                        <h2 id="profileName">Nombre Usuario</h2>
+                        <p id="profileEmail">email@ejemplo.com</p>
+                        <p id="profileRole">Estudiante</p>
+                    </div>
+                    <button class="btn btn-outline" id="editProfileBtn">Editar Perfil</button>
+                </div>
+                
+                <div class="profile-tabs">
+                    <button class="tab-btn active" data-tab="my-videos">Mis Videos</button>
+                    <button class="tab-btn" data-tab="favorites">Favoritos</button>
+                    <button class="tab-btn" data-tab="history">Historial</button>
+                    <button class="tab-btn" data-tab="settings">Configuración</button>
+                </div>
+                
+                <div class="tab-content">
+                    <div id="my-videos" class="tab-panel active">
+                        <div class="video-grid" id="myVideosGrid">
+                            <!-- User's videos will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div id="favorites" class="tab-panel">
+                        <div class="video-grid" id="favoritesGrid">
+                            <!-- Favorite videos will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div id="history" class="tab-panel">
+                        <div class="video-grid" id="historyGrid">
+                            <!-- Watch history will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div id="settings" class="tab-panel">
+                        <form class="settings-form">
+                            <div class="form-group">
+                                <label>Calidad de video preferida</label>
+                                <select id="preferredQuality">
+                                    <option value="auto">Automática</option>
+                                    <option value="1080p">1080p (Full HD)</option>
+                                    <option value="720p">720p (HD)</option>
+                                    <option value="480p">480p (SD)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="autoplay">
+                                    <span class="checkmark"></span>
+                                    Reproducción automática
+                                </label>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="notifications">
+                                    <span class="checkmark"></span>
+                                    Recibir notificaciones
+                                </label>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">Guardar Configuración</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Video Player Modal -->
+    <div class="modal" id="videoModal">
+        <div class="modal-content video-modal-content">
+            <div class="modal-header">
+                <h3 id="modalVideoTitle">Título del Video</h3>
+                <button class="modal-close" id="closeVideoModal">&times;</button>
+            </div>
+            <div class="video-player-container">
+                <video
+                    id="videoPlayer"
+                    class="video-js vjs-default-skin"
+                    controls
+                    preload="auto"
+                    data-setup='{}'>
+                    <source src="" type="application/x-mpegURL">
+                    <p class="vjs-no-js">
+                        Para ver este video, habilita JavaScript y considera actualizar a un navegador web que
+                        <a href="https://videojs.com/html5-video-support/" target="_blank">soporte video HTML5</a>.
+                    </p>
+                </video>
+            </div>
+            <div class="video-info">
+                <div class="video-meta">
+                    <div class="instructor-info">
+                        <img src="/static/assets/default-avatar.png" alt="Instructor" class="instructor-avatar">
+                        <div>
+                            <p class="instructor-name" id="instructorName">Nombre Instructor</p>
+                            <p class="video-date" id="videoDate">Publicado hace 2 días</p>
+                        </div>
+                    </div>
+                    <div class="video-actions">
+                        <button class="action-btn" id="likeBtn">👍 <span id="likeCount">0</span></button>
+                        <button class="action-btn" id="favoriteBtn">⭐ Favorito</button>
+                        <button class="action-btn" id="shareBtn">📤 Compartir</button>
+                    </div>
+                </div>
+                <div class="video-description">
+                    <p id="modalVideoDescription">Descripción del video...</p>
+                </div>
+                <div class="video-tags" id="modalVideoTags">
+                    <!-- Tags will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modals -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content auth-modal-content">
+            <div class="modal-header">
+                <h3>Iniciar Sesión</h3>
+                <button class="modal-close" id="closeLoginModal">&times;</button>
+            </div>
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="loginEmail">Correo Electrónico</label>
+                    <input type="email" id="loginEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Contraseña</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Iniciar Sesión</button>
+                <p class="auth-switch">
+                    ¿No tienes cuenta? <a href="#register" id="switchToRegister">Regístrate aquí</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="registerModal">
+        <div class="modal-content auth-modal-content">
+            <div class="modal-header">
+                <h3>Registrarse</h3>
+                <button class="modal-close" id="closeRegisterModal">&times;</button>
+            </div>
+            <form id="registerForm" class="auth-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="registerFirstName">Nombre</label>
+                        <input type="text" id="registerFirstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="registerLastName">Apellido</label>
+                        <input type="text" id="registerLastName" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Correo Electrónico</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Contraseña</label>
+                    <input type="password" id="registerPassword" required minlength="8">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirmar Contraseña</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Registrarse</button>
+                <p class="auth-switch">
+                    ¿Ya tienes cuenta? <a href="#login" id="switchToLogin">Inicia sesión aquí</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner-large"></div>
+        <p>Cargando...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer">
+        <!-- Toasts will be dynamically added here -->
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.0.4/video.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-hls/5.15.0/videojs-contrib-hls.min.js"></script>
+    <script src="/static/js/app.js" type="module"></script>
+    <script>
+        // Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
