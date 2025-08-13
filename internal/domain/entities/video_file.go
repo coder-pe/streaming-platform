@@ -1,4 +1,7 @@
-// internal/domain/entities/streaming.go
+// Copyright (c) 2024 Miguel Mamani
+// Email: miguel.coder.per@gmail.com
+// License: MIT
+
 package entities
 
 import (

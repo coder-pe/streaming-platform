@@ -1,4 +1,7 @@
-// internal/delivery/workers/notification_worker.go
+// Copyright (c) 2024 Miguel Mamani
+// Email: miguel.coder.per@gmail.com
+// License: MIT
+
 package workers
 
 import (

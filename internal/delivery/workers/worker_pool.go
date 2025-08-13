@@ -1,4 +1,7 @@
-// internal/delivery/workers/worker_pool.go
+// Copyright (c) 2024 Miguel Mamani
+// Email: miguel.coder.per@gmail.com
+// License: MIT
+
 package workers
 
 import (

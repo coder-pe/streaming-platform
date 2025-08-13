@@ -1,4 +1,7 @@
-// internal/delivery/http/handlers/video_handler.go
+// Copyright (c) 2024 Miguel Mamani
+// Email: miguel.coder.per@gmail.com
+// License: MIT
+
 package handlers
 
 import (
