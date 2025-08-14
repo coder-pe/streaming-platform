@@ -82,10 +82,10 @@ func (a *AuthUsecase) Login(ctx context.Context, email, password string) (string
 		CreatedAt: user.CreatedAt,
 	}
 
-	// Cache user profile
-	if err := a.cacheRepo.CacheUser(ctx, user.ID.String(), profile); err != nil {
+	// Cache user
+	if err := a.cacheRepo.CacheUser(ctx, user); err != nil {
 		// Log error but don't fail login
-		fmt.Printf("Warning: failed to cache user profile: %v\n", err)
+		fmt.Printf("Warning: failed to cache user: %v\n", err)
 	}
 
 	return accessToken, refreshToken, profile, nil
@@ -143,10 +143,10 @@ func (a *AuthUsecase) Register(ctx context.Context, user *entities.User, passwor
 		CreatedAt: user.CreatedAt,
 	}
 
-	// Cache user profile
-	if err := a.cacheRepo.CacheUser(ctx, user.ID.String(), profile); err != nil {
+	// Cache user
+	if err := a.cacheRepo.CacheUser(ctx, user); err != nil {
 		// Log error but don't fail registration
-		fmt.Printf("Warning: failed to cache user profile: %v\n", err)
+		fmt.Printf("Warning: failed to cache user: %v\n", err)
 	}
 
 	return accessToken, refreshToken, profile, nil
@@ -281,7 +281,7 @@ func (a *AuthUsecase) ResetPassword(ctx context.Context, token, newPassword stri
 	}
 
 	// Invalidate user cache
-	if err := a.cacheRepo.InvalidateUserCache(ctx, userID.String()); err != nil {
+	if err := a.cacheRepo.InvalidateUserCache(ctx, userID); err != nil {
 		// Log error but don't fail reset
 		fmt.Printf("Warning: failed to invalidate user cache: %v\n", err)
 	}
@@ -327,7 +327,7 @@ func (a *AuthUsecase) ChangePassword(ctx context.Context, userID, currentPasswor
 	}
 
 	// Invalidate user cache
-	if err := a.cacheRepo.InvalidateUserCache(ctx, uid.String()); err != nil {
+	if err := a.cacheRepo.InvalidateUserCache(ctx, uid); err != nil {
 		// Log error but don't fail change
 		fmt.Printf("Warning: failed to invalidate user cache: %v\n", err)
 	}
@@ -427,8 +427,13 @@ func (a *AuthUsecase) ValidateToken(ctx context.Context, token string) (*entitie
 	}
 
 	// Convert JWT claims to domain claims
+	userID, err := uuid.Parse(claims.UserID)
+	if err != nil {
+		return nil, errors.AuthTokenInvalid
+	}
+	
 	tokenClaims := &entities.TokenClaims{
-		UserID: claims.UserID,
+		UserID: userID,
 		Email:  claims.Email,
 		Role:   claims.Role,
 	}
@@ -452,7 +457,7 @@ func (a *AuthUsecase) CreateSession(ctx context.Context, userID uuid.UUID) (stri
 		return "", err
 	}
 
-	if err := a.cacheRepo.SetSession(ctx, sessionID, userID.String()); err != nil {
+	if err := a.cacheRepo.SetSession(ctx, sessionID, userID, 24*time.Hour); err != nil {
 		return "", fmt.Errorf("failed to create session: %w", err)
 	}
 
@@ -460,12 +465,7 @@ func (a *AuthUsecase) CreateSession(ctx context.Context, userID uuid.UUID) (stri
 }
 
 func (a *AuthUsecase) ValidateSession(ctx context.Context, sessionID string) (*entities.User, error) {
-	userIDStr, err := a.cacheRepo.GetSession(ctx, sessionID)
-	if err != nil {
-		return nil, errors.AuthTokenInvalid
-	}
-
-	userID, err := uuid.Parse(userIDStr)
+	userID, err := a.cacheRepo.GetSession(ctx, sessionID)
 	if err != nil {
 		return nil, errors.AuthTokenInvalid
 	}

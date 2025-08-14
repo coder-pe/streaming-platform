@@ -122,6 +122,25 @@ type CacheRepository interface {
 	HashGet(ctx context.Context, key string, field string) (interface{}, error)
 	HashGetAll(ctx context.Context, key string) (map[string]interface{}, error)
 	HashDelete(ctx context.Context, key string, fields ...string) error
+
+	// String operations
+	SetString(ctx context.Context, key string, value string, expiration time.Duration) error
+	GetString(ctx context.Context, key string) (string, error)
+
+	// User cache operations
+	CacheUser(ctx context.Context, user *entities.User) error
+	GetCachedUser(ctx context.Context, userID uuid.UUID) (*entities.User, error)
+	InvalidateUserCache(ctx context.Context, userID uuid.UUID) error
+
+	// Video cache operations
+	CacheVideo(ctx context.Context, video *entities.Video) error
+	GetCachedVideo(ctx context.Context, videoID uuid.UUID) (*entities.Video, error)
+	InvalidateVideoCache(ctx context.Context, videoID uuid.UUID) error
+
+	// Session operations
+	SetSession(ctx context.Context, sessionID string, userID uuid.UUID, expiration time.Duration) error
+	GetSession(ctx context.Context, sessionID string) (uuid.UUID, error)
+	InvalidateSession(ctx context.Context, sessionID string) error
 }
 
 // WatchHistoryRepository defines the interface for watch history operations

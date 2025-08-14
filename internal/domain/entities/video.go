@@ -70,3 +70,63 @@ type VideoSearchResponse struct {
 	Page   int     `json:"page"`
 	Limit  int     `json:"limit"`
 }
+
+type VideoStats struct {
+	ID            uuid.UUID `json:"id" db:"id"`
+	VideoID       uuid.UUID `json:"video_id" db:"video_id"`
+	ViewCount     int64     `json:"view_count" db:"view_count"`
+	Views         int64     `json:"views" db:"views"`
+	LikeCount     int64     `json:"like_count" db:"like_count"`
+	Likes         int64     `json:"likes" db:"likes"`
+	CommentCount  int64     `json:"comment_count" db:"comment_count"`
+	Comments      int64     `json:"comments" db:"comments"`
+	ShareCount    int64     `json:"share_count" db:"share_count"`
+	Shares        int64     `json:"shares" db:"shares"`
+	AverageRating float64   `json:"average_rating" db:"average_rating"`
+	RatingCount   int64     `json:"rating_count" db:"rating_count"`
+	WatchTime     int64     `json:"watch_time" db:"watch_time"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
+
+type ViewEvent struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	UserID    uuid.UUID `json:"user_id" db:"user_id"`
+	VideoID   uuid.UUID `json:"video_id" db:"video_id"`
+	Duration  int       `json:"duration" db:"duration"`
+	Quality   string    `json:"quality" db:"quality"`
+	Timestamp time.Time `json:"timestamp" db:"timestamp"`
+}
+
+type InteractionEvent struct {
+	ID           uuid.UUID `json:"id" db:"id"`
+	UserID       uuid.UUID `json:"user_id" db:"user_id"`
+	VideoID      uuid.UUID `json:"video_id" db:"video_id"`
+	Action       string    `json:"action" db:"action"`
+	Timestamp    time.Time `json:"timestamp" db:"timestamp"`
+	Metadata     string    `json:"metadata" db:"metadata"`
+}
+
+type VideoAnalytics struct {
+	VideoID      uuid.UUID `json:"video_id"`
+	Views        int64     `json:"views"`
+	UniqueViews  int64     `json:"unique_views"`
+	WatchTime    int64     `json:"watch_time"`
+	Retention    float64   `json:"retention"`
+	Engagement   float64   `json:"engagement"`
+}
+
+type UserAnalytics struct {
+	UserID       uuid.UUID `json:"user_id"`
+	WatchTime    int64     `json:"watch_time"`
+	VideosViewed int64     `json:"videos_viewed"`
+	Interactions int64     `json:"interactions"`
+}
+
+type PlatformAnalytics struct {
+	TotalViews    int64   `json:"total_views"`
+	TotalUsers    int64   `json:"total_users"`
+	TotalVideos   int64   `json:"total_videos"`
+	AvgWatchTime  float64 `json:"avg_watch_time"`
+	PopularTags   []string `json:"popular_tags"`
+}

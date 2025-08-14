@@ -334,7 +334,7 @@ func (s *StreamingUsecase) UpdateStreamingStats(ctx context.Context, userID, vid
 	statsKey := fmt.Sprintf("streaming_stats:%s:%s", videoID.String(), time.Now().Format("2006-01-02"))
 
 	// Increment segment access count
-	if err := s.cacheRepo.Increment(ctx, statsKey); err != nil {
+	if _, err := s.cacheRepo.Increment(ctx, statsKey); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to update streaming stats: %v\n", err)
 	}
@@ -432,7 +432,8 @@ func (s *StreamingUsecase) buildMasterPlaylist(videoFiles []*entities.VideoFile)
 	playlist.WriteString("#EXT-X-VERSION:3\n\n")
 
 	// Sort files by quality (highest first)
-	qualityOrder := map[string]int{
+	// qualityOrder could be used for sorting if needed
+	_ = map[string]int{
 		"1080p": 1,
 		"720p":  2,
 		"480p":  3,

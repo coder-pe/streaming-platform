@@ -32,9 +32,18 @@ func NewUserUsecase(userRepo interfaces.UserRepository, cacheRepo interfaces.Cac
 
 func (u *UserUsecase) GetUserByID(ctx context.Context, userID uuid.UUID) (*entities.UserProfile, error) {
 	// Check cache first
-	var cachedProfile entities.UserProfile
-	if err := u.cacheRepo.GetCachedUser(ctx, userID.String(), &cachedProfile); err == nil {
-		return &cachedProfile, nil
+	if cachedUser, err := u.cacheRepo.GetCachedUser(ctx, userID); err == nil {
+		// Convert User to UserProfile
+		profile := &entities.UserProfile{
+			ID:        cachedUser.ID,
+			Email:     cachedUser.Email,
+			FirstName: cachedUser.FirstName,
+			LastName:  cachedUser.LastName,
+			Role:      cachedUser.Role,
+			Avatar:    cachedUser.Avatar,
+			CreatedAt: cachedUser.CreatedAt,
+		}
+		return profile, nil
 	}
 
 	// Get from database
@@ -54,10 +63,10 @@ func (u *UserUsecase) GetUserByID(ctx context.Context, userID uuid.UUID) (*entit
 		CreatedAt: user.CreatedAt,
 	}
 
-	// Cache the profile
-	if err := u.cacheRepo.CacheUser(ctx, userID.String(), profile); err != nil {
+	// Cache the user
+	if err := u.cacheRepo.CacheUser(ctx, user); err != nil {
 		// Log error but don't fail the request
-		fmt.Printf("Warning: failed to cache user profile: %v\n", err)
+		fmt.Printf("Warning: failed to cache user: %v\n", err)
 	}
 
 	return profile, nil
@@ -98,7 +107,7 @@ func (u *UserUsecase) UpdateUser(ctx context.Context, userID uuid.UUID, updates 
 	}
 
 	// Invalidate cache
-	if err := u.cacheRepo.InvalidateUserCache(ctx, userID.String()); err != nil {
+	if err := u.cacheRepo.InvalidateUserCache(ctx, userID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate user cache: %v\n", err)
 	}
@@ -130,7 +139,7 @@ func (u *UserUsecase) DeactivateAccount(ctx context.Context, userID uuid.UUID, p
 	}
 
 	// Invalidate cache
-	if err := u.cacheRepo.InvalidateUserCache(ctx, userID.String()); err != nil {
+	if err := u.cacheRepo.InvalidateUserCache(ctx, userID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate user cache: %v\n", err)
 	}
@@ -357,7 +366,7 @@ func (u *UserUsecase) UpdateUserRole(ctx context.Context, userID uuid.UUID, role
 	}
 
 	// Invalidate cache
-	if err := u.cacheRepo.InvalidateUserCache(ctx, userID.String()); err != nil {
+	if err := u.cacheRepo.InvalidateUserCache(ctx, userID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate user cache: %v\n", err)
 	}
@@ -371,7 +380,7 @@ func (u *UserUsecase) UpdateUserStatus(ctx context.Context, userID uuid.UUID, is
 	}
 
 	// Invalidate cache
-	if err := u.cacheRepo.InvalidateUserCache(ctx, userID.String()); err != nil {
+	if err := u.cacheRepo.InvalidateUserCache(ctx, userID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate user cache: %v\n", err)
 	}

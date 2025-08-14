@@ -385,7 +385,7 @@ func RedisPipeline(client redis.Cmdable, commands func(redis.Pipeliner) error) e
 		return fmt.Errorf("failed to prepare pipeline commands: %w", err)
 	}
 
-	_, err := pipe.ExecContext(ctx)
+	_, err := pipe.Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to execute pipeline: %w", err)
 	}

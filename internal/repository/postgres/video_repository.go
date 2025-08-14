@@ -136,11 +136,16 @@ func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 	}
 
 	// Get video files
-	videoFiles, err := r.GetVideoFiles(ctx, video.ID)
+	videoFilesPtrs, err := r.GetVideoFiles(ctx, video.ID)
 	if err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to get video files for video %s: %v\n", video.ID, err)
 	} else {
+		// Convert []*VideoFile to []VideoFile
+		videoFiles := make([]entities.VideoFile, len(videoFilesPtrs))
+		for i, vf := range videoFilesPtrs {
+			videoFiles[i] = *vf
+		}
 		video.VideoFiles = videoFiles
 	}
 

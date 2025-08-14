@@ -2,13 +2,14 @@
 // Email: miguel.coder.per@gmail.com
 // License: MIT
 
-package utils
+package logger
 
 import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math"
 	"net"
 	"net/http"
@@ -23,6 +24,52 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// Logger interface for structured logging
+type Logger interface {
+	Info(format string, args ...interface{})
+	Error(format string, args ...interface{})
+	Debug(format string, args ...interface{})
+	Warn(format string, args ...interface{})
+}
+
+// DefaultLogger implements the Logger interface using standard log package
+type DefaultLogger struct {
+	infoLogger  *log.Logger
+	errorLogger *log.Logger
+	debugLogger *log.Logger
+	warnLogger  *log.Logger
+}
+
+// NewLogger creates a new logger instance
+func NewLogger() Logger {
+	return &DefaultLogger{
+		infoLogger:  log.New(os.Stdout, "[INFO] ", log.LstdFlags|log.Lshortfile),
+		errorLogger: log.New(os.Stderr, "[ERROR] ", log.LstdFlags|log.Lshortfile),
+		debugLogger: log.New(os.Stdout, "[DEBUG] ", log.LstdFlags|log.Lshortfile),
+		warnLogger:  log.New(os.Stdout, "[WARN] ", log.LstdFlags|log.Lshortfile),
+	}
+}
+
+// Info logs an info message
+func (l *DefaultLogger) Info(format string, args ...interface{}) {
+	l.infoLogger.Printf(format, args...)
+}
+
+// Error logs an error message
+func (l *DefaultLogger) Error(format string, args ...interface{}) {
+	l.errorLogger.Printf(format, args...)
+}
+
+// Debug logs a debug message
+func (l *DefaultLogger) Debug(format string, args ...interface{}) {
+	l.debugLogger.Printf(format, args...)
+}
+
+// Warn logs a warning message
+func (l *DefaultLogger) Warn(format string, args ...interface{}) {
+	l.warnLogger.Printf(format, args...)
+}
 
 // StringUtils provides string utility functions
 type StringUtils struct{}
@@ -290,12 +337,12 @@ func (t TimeUtils) IsBusinessDay(date time.Time) bool {
 }
 
 // GetStartOfDay returns the start of the day for a given time
-func (t TimeUtils) GetStartOfDay(t time.Time) time.Time {
+func (tu TimeUtils) GetStartOfDay(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 }
 
 // GetEndOfDay returns the end of the day for a given time
-func (t TimeUtils) GetEndOfDay(t time.Time) time.Time {
+func (tu TimeUtils) GetEndOfDay(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, t.Location())
 }
 

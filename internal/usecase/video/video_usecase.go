@@ -59,9 +59,8 @@ func (v *VideoUsecase) CreateVideo(ctx context.Context, video *entities.Video) e
 
 func (v *VideoUsecase) GetVideoByID(ctx context.Context, videoID uuid.UUID) (*entities.Video, error) {
 	// Check cache first
-	var cachedVideo entities.Video
-	if err := v.cacheRepo.GetCachedVideo(ctx, videoID.String(), &cachedVideo); err == nil {
-		return &cachedVideo, nil
+	if cachedVideo, err := v.cacheRepo.GetCachedVideo(ctx, videoID); err == nil {
+		return cachedVideo, nil
 	}
 
 	// Get from database
@@ -71,7 +70,7 @@ func (v *VideoUsecase) GetVideoByID(ctx context.Context, videoID uuid.UUID) (*en
 	}
 
 	// Cache the video
-	if err := v.cacheRepo.CacheVideo(ctx, videoID.String(), video); err != nil {
+	if err := v.cacheRepo.CacheVideo(ctx, video); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to cache video: %v\n", err)
 	}
@@ -91,7 +90,7 @@ func (v *VideoUsecase) UpdateVideo(ctx context.Context, video *entities.Video) e
 	}
 
 	// Invalidate cache
-	if err := v.cacheRepo.InvalidateVideoCache(ctx, video.ID.String()); err != nil {
+	if err := v.cacheRepo.InvalidateVideoCache(ctx, video.ID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
@@ -106,7 +105,7 @@ func (v *VideoUsecase) DeleteVideo(ctx context.Context, videoID uuid.UUID) error
 	}
 
 	// Invalidate cache
-	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoID.String()); err != nil {
+	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
@@ -183,7 +182,7 @@ func (v *VideoUsecase) IncrementViewCount(ctx context.Context, videoID uuid.UUID
 	}
 
 	// Invalidate cache to refresh view count
-	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoID.String()); err != nil {
+	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
@@ -201,7 +200,7 @@ func (v *VideoUsecase) UpdateVideoStatus(ctx context.Context, videoID uuid.UUID,
 	}
 
 	// Invalidate cache
-	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoID.String()); err != nil {
+	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
@@ -216,7 +215,7 @@ func (v *VideoUsecase) AddVideoFile(ctx context.Context, videoFile *entities.Vid
 	}
 
 	// Invalidate video cache to refresh file list
-	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoFile.VideoID.String()); err != nil {
+	if err := v.cacheRepo.InvalidateVideoCache(ctx, videoFile.VideoID); err != nil {
 		// Log error but don't fail the request
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
@@ -236,7 +235,7 @@ func (v *VideoUsecase) UpdateVideoWithFiles(ctx context.Context, video *entities
 
 	// Add video files
 	for _, videoFile := range video.VideoFiles {
-		if err := v.AddVideoFile(ctx, videoFile); err != nil {
+		if err := v.AddVideoFile(ctx, &videoFile); err != nil {
 			return fmt.Errorf("failed to add video file: %w", err)
 		}
 	}
