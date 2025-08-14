@@ -45,7 +45,7 @@ func Load() *Config {
 		LogLevel: getEnv("LOG_LEVEL", "info"),
 
 		// Database
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://user:password@localhost:5432/streaming_platform?sslmode=disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgres://streaming_platform_app:m4m4n1@localhost:5432/streaming_platform_db?sslmode=disable"),
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379"),
 
 		// JWT
