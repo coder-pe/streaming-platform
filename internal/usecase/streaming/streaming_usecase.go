@@ -20,15 +20,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type StreamingUsecase struct {
+type streamingUsecaseImpl struct {
 	videoRepo  interfaces.VideoRepository
 	cacheRepo  interfaces.CacheRepository
 	cdnBaseURL string
 	jwtSecret  string
 }
 
-func NewStreamingUsecase(videoRepo interfaces.VideoRepository, cacheRepo interfaces.CacheRepository, cdnBaseURL, jwtSecret string) *StreamingUsecase {
-	return &StreamingUsecase{
+func NewStreamingUsecase(videoRepo interfaces.VideoRepository, cacheRepo interfaces.CacheRepository, cdnBaseURL, jwtSecret string) *streamingUsecaseImpl {
+	return &streamingUsecaseImpl{
 		videoRepo:  videoRepo,
 		cacheRepo:  cacheRepo,
 		cdnBaseURL: cdnBaseURL,
@@ -36,7 +36,7 @@ func NewStreamingUsecase(videoRepo interfaces.VideoRepository, cacheRepo interfa
 	}
 }
 
-func (s *StreamingUsecase) GetHLSPlaylist(ctx context.Context, videoID uuid.UUID) (*entities.HLSPlaylist, error) {
+func (s *streamingUsecaseImpl) GetHLSPlaylist(ctx context.Context, videoID uuid.UUID) (*entities.HLSPlaylist, error) {
 	// Check cache first
 	cacheKey := fmt.Sprintf("hls_playlist:%s", videoID.String())
 	var cachedPlaylist entities.HLSPlaylist
@@ -97,7 +97,7 @@ func (s *StreamingUsecase) GetHLSPlaylist(ctx context.Context, videoID uuid.UUID
 	return playlist, nil
 }
 
-func (s *StreamingUsecase) GetVariantPlaylist(ctx context.Context, videoID uuid.UUID, quality string) (string, error) {
+func (s *streamingUsecaseImpl) GetVariantPlaylist(ctx context.Context, videoID uuid.UUID, quality string) (string, error) {
 	// Check cache first
 	cacheKey := fmt.Sprintf("variant_playlist:%s:%s", videoID.String(), quality)
 	var cachedPlaylist string
@@ -142,7 +142,7 @@ func (s *StreamingUsecase) GetVariantPlaylist(ctx context.Context, videoID uuid.
 	return playlist, nil
 }
 
-func (s *StreamingUsecase) CheckVideoAccess(ctx context.Context, userID, videoID uuid.UUID) (bool, error) {
+func (s *streamingUsecaseImpl) CheckVideoAccess(ctx context.Context, userID, videoID uuid.UUID) (bool, error) {
 	// Get video
 	video, err := s.videoRepo.GetByID(ctx, videoID)
 	if err != nil {
@@ -172,7 +172,7 @@ func (s *StreamingUsecase) CheckVideoAccess(ctx context.Context, userID, videoID
 	return false, nil
 }
 
-func (s *StreamingUsecase) GenerateStreamingToken(ctx context.Context, userID, videoID uuid.UUID, duration time.Duration) (string, error) {
+func (s *streamingUsecaseImpl) GenerateStreamingToken(ctx context.Context, userID, videoID uuid.UUID, duration time.Duration) (string, error) {
 	// Check if user has access
 	hasAccess, err := s.CheckVideoAccess(ctx, userID, videoID)
 	if err != nil {
@@ -201,7 +201,7 @@ func (s *StreamingUsecase) GenerateStreamingToken(ctx context.Context, userID, v
 	return token, nil
 }
 
-func (s *StreamingUsecase) ValidateStreamingToken(ctx context.Context, token string) (*entities.StreamingClaims, error) {
+func (s *streamingUsecaseImpl) ValidateStreamingToken(ctx context.Context, token string) (*entities.StreamingClaims, error) {
 	// Validate JWT token
 	claims, err := jwt.ValidateToken(token, s.jwtSecret)
 	if err != nil {
@@ -237,7 +237,7 @@ func (s *StreamingUsecase) ValidateStreamingToken(ctx context.Context, token str
 	return streamingClaims, nil
 }
 
-func (s *StreamingUsecase) CreateStreamingSession(ctx context.Context, userID, videoID uuid.UUID, quality string) (*entities.StreamingSession, error) {
+func (s *streamingUsecaseImpl) CreateStreamingSession(ctx context.Context, userID, videoID uuid.UUID, quality string) (*entities.StreamingSession, error) {
 	// Check video access
 	hasAccess, err := s.CheckVideoAccess(ctx, userID, videoID)
 	if err != nil {
@@ -267,7 +267,7 @@ func (s *StreamingUsecase) CreateStreamingSession(ctx context.Context, userID, v
 	return session, nil
 }
 
-func (s *StreamingUsecase) UpdateStreamingSession(ctx context.Context, userID, videoID uuid.UUID, position int) error {
+func (s *streamingUsecaseImpl) UpdateStreamingSession(ctx context.Context, userID, videoID uuid.UUID, position int) error {
 	sessionKey := fmt.Sprintf("streaming_session:%s:%s", userID.String(), videoID.String())
 
 	// Get existing session
@@ -297,7 +297,7 @@ func (s *StreamingUsecase) UpdateStreamingSession(ctx context.Context, userID, v
 	return nil
 }
 
-func (s *StreamingUsecase) EndStreamingSession(ctx context.Context, userID, videoID uuid.UUID) error {
+func (s *streamingUsecaseImpl) EndStreamingSession(ctx context.Context, userID, videoID uuid.UUID) error {
 	sessionKey := fmt.Sprintf("streaming_session:%s:%s", userID.String(), videoID.String())
 
 	// Get session to record final stats
@@ -324,12 +324,12 @@ func (s *StreamingUsecase) EndStreamingSession(ctx context.Context, userID, vide
 	return nil
 }
 
-func (s *StreamingUsecase) RecordStreamingSession(ctx context.Context, userID, videoID uuid.UUID, quality string) error {
+func (s *streamingUsecaseImpl) RecordStreamingSession(ctx context.Context, userID, videoID uuid.UUID, quality string) error {
 	// Create or update streaming session
 	return s.UpdateStreamingSession(ctx, userID, videoID, 0)
 }
 
-func (s *StreamingUsecase) UpdateStreamingStats(ctx context.Context, userID, videoID uuid.UUID, segment string) error {
+func (s *streamingUsecaseImpl) UpdateStreamingStats(ctx context.Context, userID, videoID uuid.UUID, segment string) error {
 	// Record segment access for analytics
 	statsKey := fmt.Sprintf("streaming_stats:%s:%s", videoID.String(), time.Now().Format("2006-01-02"))
 
@@ -348,7 +348,7 @@ func (s *StreamingUsecase) UpdateStreamingStats(ctx context.Context, userID, vid
 	return nil
 }
 
-func (s *StreamingUsecase) GetStreamingInfo(ctx context.Context, userID, videoID uuid.UUID) (map[string]interface{}, error) {
+func (s *streamingUsecaseImpl) GetStreamingInfo(ctx context.Context, userID, videoID uuid.UUID) (map[string]interface{}, error) {
 	// Get video info
 	video, err := s.videoRepo.GetByID(ctx, videoID)
 	if err != nil {
@@ -412,7 +412,7 @@ func (s *StreamingUsecase) GetStreamingInfo(ctx context.Context, userID, videoID
 	return info, nil
 }
 
-func (s *StreamingUsecase) UpdateWatchProgress(ctx context.Context, userID, videoID uuid.UUID, position int, quality string) error {
+func (s *streamingUsecaseImpl) UpdateWatchProgress(ctx context.Context, userID, videoID uuid.UUID, position int, quality string) error {
 	// Update streaming session
 	if err := s.UpdateStreamingSession(ctx, userID, videoID, position); err != nil {
 		return fmt.Errorf("failed to update streaming session: %w", err)
@@ -426,7 +426,7 @@ func (s *StreamingUsecase) UpdateWatchProgress(ctx context.Context, userID, vide
 
 // Helper methods
 
-func (s *StreamingUsecase) buildMasterPlaylist(videoFiles []*entities.VideoFile) string {
+func (s *streamingUsecaseImpl) buildMasterPlaylist(videoFiles []*entities.VideoFile) string {
 	var playlist strings.Builder
 	playlist.WriteString("#EXTM3U\n")
 	playlist.WriteString("#EXT-X-VERSION:3\n\n")
@@ -454,7 +454,7 @@ func (s *StreamingUsecase) buildMasterPlaylist(videoFiles []*entities.VideoFile)
 	return playlist.String()
 }
 
-func (s *StreamingUsecase) getResolutionForQuality(quality string) string {
+func (s *streamingUsecaseImpl) getResolutionForQuality(quality string) string {
 	switch quality {
 	case "1080p":
 		return "1920x1080"
@@ -469,7 +469,7 @@ func (s *StreamingUsecase) getResolutionForQuality(quality string) string {
 	}
 }
 
-func (s *StreamingUsecase) getBitrateForQuality(quality string) int {
+func (s *streamingUsecaseImpl) getBitrateForQuality(quality string) int {
 	switch quality {
 	case "1080p":
 		return 5000

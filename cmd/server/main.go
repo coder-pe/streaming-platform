@@ -2,8 +2,6 @@
 // Email: miguel.coder.per@gmail.com
 // License: MIT
 
-// Estos son los cambios que necesitas hacer en cmd/server/main.go
-
 package main
 
 import (
@@ -34,13 +32,12 @@ func main() {
 	// Configuración
 	cfg := config.Load()
 
-	// Logger - SIN ARGUMENTOS
+	// Logger
 	log := logger.NewLogger()
 
 	// Conexiones a base de datos
 	db, err := database.NewPostgres(cfg.DatabaseURL)
 	if err != nil {
-		// USAR log.Error en lugar de log.Fatal
 		log.Error("Error connecting to PostgreSQL: %v", err)
 		os.Exit(1)
 	}
@@ -48,7 +45,6 @@ func main() {
 
 	redisClient, err := database.NewRedis(cfg.RedisURL)
 	if err != nil {
-		// USAR log.Error en lugar de log.Fatal
 		log.Error("Error connecting to Redis: %v", err)
 		os.Exit(1)
 	}
@@ -59,22 +55,21 @@ func main() {
 	videoRepo := postgres.NewVideoRepository(db)
 	cacheRepo := redis.NewCacheRepository(redisClient)
 
-	// Use cases - USAR PUNTEROS EN LOS HANDLERS
+	// Use cases - Ahora devuelven interfaces, no punteros
 	authUsecase := auth.NewAuthUsecase(userRepo, cacheRepo, cfg.JWTSecret)
 	userUsecase := user.NewUserUsecase(userRepo, cacheRepo)
 	videoUsecase := video.NewVideoUsecase(videoRepo, cacheRepo)
-	// AGREGAR EL CUARTO PARÁMETRO A streaming
 	streamingUsecase := streaming.NewStreamingUsecase(videoRepo, cacheRepo, cfg.CDNBaseURL, cfg.JWTSecret)
 
-	// Handlers - PASAR PUNTEROS
-	authHandler := handlers.NewAuthHandler(*authUsecase, log)
-	userHandler := handlers.NewUserHandler(*userUsecase, log)
-	videoHandler := handlers.NewVideoHandler(*videoUsecase, log)
+	// Handlers - Reciben interfaces directamente
+	authHandler := handlers.NewAuthHandler(authUsecase, log)
+	userHandler := handlers.NewUserHandler(userUsecase, log)
+	videoHandler := handlers.NewVideoHandler(videoUsecase, log)
 	streamingHandler := handlers.NewStreamingHandler(streamingUsecase, log)
 
 	// Worker Pool
 	workerPool := workers.NewWorkerPool(cfg.WorkerPoolSize, log)
-	transcodingWorker := workers.NewTranscodingWorker(*videoUsecase, cfg.FFmpegPath, cfg.StoragePath)
+	transcodingWorker := workers.NewTranscodingWorker(videoUsecase, cfg.FFmpegPath, cfg.StoragePath)
 	workerPool.RegisterWorker("transcoding", transcodingWorker)
 	workerPool.Start()
 	defer workerPool.Stop()

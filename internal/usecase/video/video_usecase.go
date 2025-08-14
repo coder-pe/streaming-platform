@@ -18,21 +18,21 @@ import (
 	"github.com/google/uuid"
 )
 
-type VideoUsecase struct {
+type videoUsecaseImpl struct {
 	videoRepo interfaces.VideoRepository
 	cacheRepo interfaces.CacheRepository
 	jobQueue  chan map[string]interface{} // Simple job queue for transcoding
 }
 
-func NewVideoUsecase(videoRepo interfaces.VideoRepository, cacheRepo interfaces.CacheRepository) *VideoUsecase {
-	return &VideoUsecase{
+func NewVideoUsecase(videoRepo interfaces.VideoRepository, cacheRepo interfaces.CacheRepository) *videoUsecaseImpl {
+	return &videoUsecaseImpl{
 		videoRepo: videoRepo,
 		cacheRepo: cacheRepo,
 		jobQueue:  make(chan map[string]interface{}, 100),
 	}
 }
 
-func (v *VideoUsecase) CreateVideo(ctx context.Context, video *entities.Video) error {
+func (v *videoUsecaseImpl) CreateVideo(ctx context.Context, video *entities.Video) error {
 	// Validate video data
 	if err := v.validateVideo(video); err != nil {
 		return err
@@ -57,7 +57,7 @@ func (v *VideoUsecase) CreateVideo(ctx context.Context, video *entities.Video) e
 	return nil
 }
 
-func (v *VideoUsecase) GetVideoByID(ctx context.Context, videoID uuid.UUID) (*entities.Video, error) {
+func (v *videoUsecaseImpl) GetVideoByID(ctx context.Context, videoID uuid.UUID) (*entities.Video, error) {
 	// Check cache first
 	if cachedVideo, err := v.cacheRepo.GetCachedVideo(ctx, videoID); err == nil {
 		return cachedVideo, nil
@@ -78,7 +78,7 @@ func (v *VideoUsecase) GetVideoByID(ctx context.Context, videoID uuid.UUID) (*en
 	return video, nil
 }
 
-func (v *VideoUsecase) UpdateVideo(ctx context.Context, video *entities.Video) error {
+func (v *videoUsecaseImpl) UpdateVideo(ctx context.Context, video *entities.Video) error {
 	// Validate video data
 	if err := v.validateVideo(video); err != nil {
 		return err
@@ -98,7 +98,7 @@ func (v *VideoUsecase) UpdateVideo(ctx context.Context, video *entities.Video) e
 	return nil
 }
 
-func (v *VideoUsecase) DeleteVideo(ctx context.Context, videoID uuid.UUID) error {
+func (v *videoUsecaseImpl) DeleteVideo(ctx context.Context, videoID uuid.UUID) error {
 	// Delete from database
 	if err := v.videoRepo.Delete(ctx, videoID); err != nil {
 		return fmt.Errorf("failed to delete video: %w", err)
@@ -116,7 +116,7 @@ func (v *VideoUsecase) DeleteVideo(ctx context.Context, videoID uuid.UUID) error
 	return nil
 }
 
-func (v *VideoUsecase) SearchPublicVideos(ctx context.Context, searchReq entities.VideoSearchRequest) (*entities.VideoSearchResponse, error) {
+func (v *videoUsecaseImpl) SearchPublicVideos(ctx context.Context, searchReq entities.VideoSearchRequest) (*entities.VideoSearchResponse, error) {
 	// Validate search request
 	if searchReq.Page <= 0 {
 		searchReq.Page = 1
@@ -134,7 +134,7 @@ func (v *VideoUsecase) SearchPublicVideos(ctx context.Context, searchReq entitie
 	return response, nil
 }
 
-func (v *VideoUsecase) GetVideosByCategory(ctx context.Context, category string, page, limit int) ([]*entities.Video, int64, error) {
+func (v *videoUsecaseImpl) GetVideosByCategory(ctx context.Context, category string, page, limit int) ([]*entities.Video, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -145,7 +145,7 @@ func (v *VideoUsecase) GetVideosByCategory(ctx context.Context, category string,
 	return v.videoRepo.GetByCategory(ctx, category, page, limit)
 }
 
-func (v *VideoUsecase) GetVideosByInstructor(ctx context.Context, instructorID uuid.UUID, page, limit int) ([]*entities.Video, int64, error) {
+func (v *videoUsecaseImpl) GetVideosByInstructor(ctx context.Context, instructorID uuid.UUID, page, limit int) ([]*entities.Video, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -156,7 +156,7 @@ func (v *VideoUsecase) GetVideosByInstructor(ctx context.Context, instructorID u
 	return v.videoRepo.GetByInstructor(ctx, instructorID, page, limit)
 }
 
-func (v *VideoUsecase) GetPublicVideos(ctx context.Context, page, limit int) ([]*entities.Video, int64, error) {
+func (v *videoUsecaseImpl) GetPublicVideos(ctx context.Context, page, limit int) ([]*entities.Video, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -167,7 +167,7 @@ func (v *VideoUsecase) GetPublicVideos(ctx context.Context, page, limit int) ([]
 	return v.videoRepo.GetPublicVideos(ctx, page, limit)
 }
 
-func (v *VideoUsecase) GetFeaturedVideos(ctx context.Context, limit int) ([]*entities.Video, error) {
+func (v *videoUsecaseImpl) GetFeaturedVideos(ctx context.Context, limit int) ([]*entities.Video, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
@@ -175,7 +175,7 @@ func (v *VideoUsecase) GetFeaturedVideos(ctx context.Context, limit int) ([]*ent
 	return v.videoRepo.GetFeaturedVideos(ctx, limit)
 }
 
-func (v *VideoUsecase) IncrementViewCount(ctx context.Context, videoID uuid.UUID) error {
+func (v *videoUsecaseImpl) IncrementViewCount(ctx context.Context, videoID uuid.UUID) error {
 	// Increment in database
 	if err := v.videoRepo.IncrementViewCount(ctx, videoID); err != nil {
 		return fmt.Errorf("failed to increment view count: %w", err)
@@ -190,11 +190,11 @@ func (v *VideoUsecase) IncrementViewCount(ctx context.Context, videoID uuid.UUID
 	return nil
 }
 
-func (v *VideoUsecase) GetVideoStats(ctx context.Context, videoID uuid.UUID) (*entities.VideoStats, error) {
+func (v *videoUsecaseImpl) GetVideoStats(ctx context.Context, videoID uuid.UUID) (*entities.VideoStats, error) {
 	return v.videoRepo.GetVideoStats(ctx, videoID)
 }
 
-func (v *VideoUsecase) UpdateVideoStatus(ctx context.Context, videoID uuid.UUID, status entities.VideoStatus) error {
+func (v *videoUsecaseImpl) UpdateVideoStatus(ctx context.Context, videoID uuid.UUID, status entities.VideoStatus) error {
 	if err := v.videoRepo.UpdateStatus(ctx, videoID, status); err != nil {
 		return fmt.Errorf("failed to update video status: %w", err)
 	}
@@ -209,7 +209,7 @@ func (v *VideoUsecase) UpdateVideoStatus(ctx context.Context, videoID uuid.UUID,
 }
 
 // Video file management
-func (v *VideoUsecase) AddVideoFile(ctx context.Context, videoFile *entities.VideoFile) error {
+func (v *videoUsecaseImpl) AddVideoFile(ctx context.Context, videoFile *entities.VideoFile) error {
 	if err := v.videoRepo.CreateVideoFile(ctx, videoFile); err != nil {
 		return fmt.Errorf("failed to add video file: %w", err)
 	}
@@ -223,11 +223,11 @@ func (v *VideoUsecase) AddVideoFile(ctx context.Context, videoFile *entities.Vid
 	return nil
 }
 
-func (v *VideoUsecase) GetVideoFiles(ctx context.Context, videoID uuid.UUID) ([]*entities.VideoFile, error) {
+func (v *videoUsecaseImpl) GetVideoFiles(ctx context.Context, videoID uuid.UUID) ([]*entities.VideoFile, error) {
 	return v.videoRepo.GetVideoFiles(ctx, videoID)
 }
 
-func (v *VideoUsecase) UpdateVideoWithFiles(ctx context.Context, video *entities.Video) error {
+func (v *videoUsecaseImpl) UpdateVideoWithFiles(ctx context.Context, video *entities.Video) error {
 	// Update video
 	if err := v.UpdateVideo(ctx, video); err != nil {
 		return err
@@ -244,7 +244,7 @@ func (v *VideoUsecase) UpdateVideoWithFiles(ctx context.Context, video *entities
 }
 
 // Transcoding job management
-func (v *VideoUsecase) QueueTranscodingJob(ctx context.Context, job map[string]interface{}) error {
+func (v *videoUsecaseImpl) QueueTranscodingJob(ctx context.Context, job map[string]interface{}) error {
 	select {
 	case v.jobQueue <- job:
 		fmt.Printf("Transcoding job queued for video: %v\n", job["video_id"])
@@ -254,7 +254,7 @@ func (v *VideoUsecase) QueueTranscodingJob(ctx context.Context, job map[string]i
 	}
 }
 
-func (v *VideoUsecase) UpdateProcessingProgress(ctx context.Context, videoID uuid.UUID, progress int) error {
+func (v *videoUsecaseImpl) UpdateProcessingProgress(ctx context.Context, videoID uuid.UUID, progress int) error {
 	// Store progress in cache
 	progressKey := fmt.Sprintf("processing_progress:%s", videoID.String())
 	progressData := map[string]interface{}{
@@ -269,7 +269,7 @@ func (v *VideoUsecase) UpdateProcessingProgress(ctx context.Context, videoID uui
 	return nil
 }
 
-func (v *VideoUsecase) GetProcessingProgress(ctx context.Context, videoID uuid.UUID) (int, error) {
+func (v *videoUsecaseImpl) GetProcessingProgress(ctx context.Context, videoID uuid.UUID) (int, error) {
 	progressKey := fmt.Sprintf("processing_progress:%s", videoID.String())
 
 	var progressData map[string]interface{}
@@ -285,7 +285,7 @@ func (v *VideoUsecase) GetProcessingProgress(ctx context.Context, videoID uuid.U
 }
 
 // Search and filtering
-func (v *VideoUsecase) SearchVideos(ctx context.Context, query string, category string, tags []string, page, limit int) (*entities.VideoSearchResponse, error) {
+func (v *videoUsecaseImpl) SearchVideos(ctx context.Context, query string, category string, tags []string, page, limit int) (*entities.VideoSearchResponse, error) {
 	searchReq := entities.VideoSearchRequest{
 		Query:    query,
 		Category: category,
@@ -297,7 +297,7 @@ func (v *VideoUsecase) SearchVideos(ctx context.Context, query string, category 
 	return v.SearchPublicVideos(ctx, searchReq)
 }
 
-func (v *VideoUsecase) GetPopularVideos(ctx context.Context, timeRange string, limit int) ([]*entities.Video, error) {
+func (v *videoUsecaseImpl) GetPopularVideos(ctx context.Context, timeRange string, limit int) ([]*entities.Video, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
@@ -305,12 +305,12 @@ func (v *VideoUsecase) GetPopularVideos(ctx context.Context, timeRange string, l
 	return v.videoRepo.GetPopularVideos(ctx, limit)
 }
 
-func (v *VideoUsecase) GetVideosByStatus(ctx context.Context, status entities.VideoStatus) ([]*entities.Video, error) {
+func (v *videoUsecaseImpl) GetVideosByStatus(ctx context.Context, status entities.VideoStatus) ([]*entities.Video, error) {
 	return v.videoRepo.GetVideosByStatus(ctx, status)
 }
 
 // Admin functionality
-func (v *VideoUsecase) GetAllVideos(ctx context.Context, page, limit int) ([]*entities.Video, int64, error) {
+func (v *videoUsecaseImpl) GetAllVideos(ctx context.Context, page, limit int) ([]*entities.Video, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -322,7 +322,7 @@ func (v *VideoUsecase) GetAllVideos(ctx context.Context, page, limit int) ([]*en
 	return v.videoRepo.List(ctx, filters, page, limit)
 }
 
-func (v *VideoUsecase) ModerateVideo(ctx context.Context, videoID uuid.UUID, action string, reason string) error {
+func (v *videoUsecaseImpl) ModerateVideo(ctx context.Context, videoID uuid.UUID, action string, reason string) error {
 	video, err := v.GetVideoByID(ctx, videoID)
 	if err != nil {
 		return fmt.Errorf("failed to get video: %w", err)
@@ -352,7 +352,7 @@ func (v *VideoUsecase) ModerateVideo(ctx context.Context, videoID uuid.UUID, act
 }
 
 // Analytics and reporting
-func (v *VideoUsecase) GetVideoAnalytics(ctx context.Context, videoID uuid.UUID, timeRange string) (map[string]interface{}, error) {
+func (v *videoUsecaseImpl) GetVideoAnalytics(ctx context.Context, videoID uuid.UUID, timeRange string) (map[string]interface{}, error) {
 	// Get basic video stats
 	stats, err := v.GetVideoStats(ctx, videoID)
 	if err != nil {
@@ -388,7 +388,7 @@ func (v *VideoUsecase) GetVideoAnalytics(ctx context.Context, videoID uuid.UUID,
 }
 
 // Validation helpers
-func (v *VideoUsecase) validateVideo(video *entities.Video) error {
+func (v *videoUsecaseImpl) validateVideo(video *entities.Video) error {
 	validationErrors := errors.NewValidationErrors()
 
 	// Validate title
@@ -449,19 +449,19 @@ func (v *VideoUsecase) validateVideo(video *entities.Video) error {
 }
 
 // Utility methods
-func (v *VideoUsecase) GetVideoQualityOptions() []string {
+func (v *videoUsecaseImpl) GetVideoQualityOptions() []string {
 	return []string{"1080p", "720p", "480p", "360p"}
 }
 
-func (v *VideoUsecase) GetVideoCategories() []string {
+func (v *videoUsecaseImpl) GetVideoCategories() []string {
 	return []string{"programming", "design", "marketing", "business", "other"}
 }
 
-func (v *VideoUsecase) GetVideoFormats() []string {
+func (v *videoUsecaseImpl) GetVideoFormats() []string {
 	return []string{"mp4", "avi", "mov", "mkv", "webm"}
 }
 
-func (v *VideoUsecase) IsValidVideoFormat(filename string) bool {
+func (v *videoUsecaseImpl) IsValidVideoFormat(filename string) bool {
 	validFormats := v.GetVideoFormats()
 	ext := strings.ToLower(filepath.Ext(filename))
 

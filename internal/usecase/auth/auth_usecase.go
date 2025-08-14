@@ -20,21 +20,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthUsecase struct {
+type authUsecaseImpl struct {
 	userRepo  interfaces.UserRepository
 	cacheRepo interfaces.CacheRepository
 	jwtSecret string
 }
 
-func NewAuthUsecase(userRepo interfaces.UserRepository, cacheRepo interfaces.CacheRepository, jwtSecret string) *AuthUsecase {
-	return &AuthUsecase{
+func NewAuthUsecase(userRepo interfaces.UserRepository, cacheRepo interfaces.CacheRepository, jwtSecret string) *authUsecaseImpl {
+	return &authUsecaseImpl{
 		userRepo:  userRepo,
 		cacheRepo: cacheRepo,
 		jwtSecret: jwtSecret,
 	}
 }
 
-func (a *AuthUsecase) Login(ctx context.Context, email, password string) (string, string, *entities.UserProfile, error) {
+func (a *authUsecaseImpl) Login(ctx context.Context, email, password string) (string, string, *entities.UserProfile, error) {
 	// Get user by email
 	user, err := a.userRepo.GetByEmail(ctx, email)
 	if err != nil {
@@ -91,7 +91,7 @@ func (a *AuthUsecase) Login(ctx context.Context, email, password string) (string
 	return accessToken, refreshToken, profile, nil
 }
 
-func (a *AuthUsecase) Register(ctx context.Context, user *entities.User, password string) (string, string, *entities.UserProfile, error) {
+func (a *authUsecaseImpl) Register(ctx context.Context, user *entities.User, password string) (string, string, *entities.UserProfile, error) {
 	// Validate password strength
 	if err := a.validatePassword(password); err != nil {
 		return "", "", nil, err
@@ -152,7 +152,7 @@ func (a *AuthUsecase) Register(ctx context.Context, user *entities.User, passwor
 	return accessToken, refreshToken, profile, nil
 }
 
-func (a *AuthUsecase) RefreshToken(ctx context.Context, refreshToken string) (string, string, *entities.UserProfile, error) {
+func (a *authUsecaseImpl) RefreshToken(ctx context.Context, refreshToken string) (string, string, *entities.UserProfile, error) {
 	// Validate refresh token
 	userID, err := a.validateRefreshToken(ctx, refreshToken)
 	if err != nil {
@@ -205,7 +205,7 @@ func (a *AuthUsecase) RefreshToken(ctx context.Context, refreshToken string) (st
 	return newAccessToken, newRefreshToken, profile, nil
 }
 
-func (a *AuthUsecase) Logout(ctx context.Context, refreshToken string) error {
+func (a *authUsecaseImpl) Logout(ctx context.Context, refreshToken string) error {
 	// Invalidate refresh token
 	refreshKey := fmt.Sprintf("refresh_token:%s", refreshToken)
 	if err := a.cacheRepo.Delete(ctx, refreshKey); err != nil {
@@ -215,7 +215,7 @@ func (a *AuthUsecase) Logout(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
-func (a *AuthUsecase) ForgotPassword(ctx context.Context, email string) error {
+func (a *authUsecaseImpl) ForgotPassword(ctx context.Context, email string) error {
 	// Get user by email
 	user, err := a.userRepo.GetByEmail(ctx, email)
 	if err != nil {
@@ -245,7 +245,7 @@ func (a *AuthUsecase) ForgotPassword(ctx context.Context, email string) error {
 	return nil
 }
 
-func (a *AuthUsecase) ResetPassword(ctx context.Context, token, newPassword string) error {
+func (a *authUsecaseImpl) ResetPassword(ctx context.Context, token, newPassword string) error {
 	// Validate new password
 	if err := a.validatePassword(newPassword); err != nil {
 		return err
@@ -289,7 +289,7 @@ func (a *AuthUsecase) ResetPassword(ctx context.Context, token, newPassword stri
 	return nil
 }
 
-func (a *AuthUsecase) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
+func (a *authUsecaseImpl) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
 	// Parse user ID
 	uid, err := uuid.Parse(userID)
 	if err != nil {
@@ -337,7 +337,7 @@ func (a *AuthUsecase) ChangePassword(ctx context.Context, userID, currentPasswor
 
 // Helper methods
 
-func (a *AuthUsecase) generateAccessToken(user *entities.User) (string, error) {
+func (a *authUsecaseImpl) generateAccessToken(user *entities.User) (string, error) {
 	claims := &jwt.Claims{
 		UserID: user.ID.String(),
 		Email:  user.Email,
@@ -347,7 +347,7 @@ func (a *AuthUsecase) generateAccessToken(user *entities.User) (string, error) {
 	return jwt.GenerateToken(claims, a.jwtSecret, 15*time.Minute) // 15 minutes
 }
 
-func (a *AuthUsecase) generateRefreshToken(userID uuid.UUID) (string, error) {
+func (a *authUsecaseImpl) generateRefreshToken(userID uuid.UUID) (string, error) {
 	// Generate random token
 	token, err := a.generateRandomToken(32)
 	if err != nil {
@@ -364,7 +364,7 @@ func (a *AuthUsecase) generateRefreshToken(userID uuid.UUID) (string, error) {
 	return token, nil
 }
 
-func (a *AuthUsecase) validateRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
+func (a *authUsecaseImpl) validateRefreshToken(ctx context.Context, token string) (uuid.UUID, error) {
 	refreshKey := fmt.Sprintf("refresh_token:%s", token)
 	userIDStr, err := a.cacheRepo.GetString(ctx, refreshKey)
 	if err != nil {
@@ -379,11 +379,11 @@ func (a *AuthUsecase) validateRefreshToken(ctx context.Context, token string) (u
 	return userID, nil
 }
 
-func (a *AuthUsecase) generateResetToken() (string, error) {
+func (a *authUsecaseImpl) generateResetToken() (string, error) {
 	return a.generateRandomToken(32)
 }
 
-func (a *AuthUsecase) generateRandomToken(length int) (string, error) {
+func (a *authUsecaseImpl) generateRandomToken(length int) (string, error) {
 	bytes := make([]byte, length)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", fmt.Errorf("failed to generate random token: %w", err)
@@ -391,7 +391,7 @@ func (a *AuthUsecase) generateRandomToken(length int) (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-func (a *AuthUsecase) hashPassword(password string) (string, error) {
+func (a *authUsecaseImpl) hashPassword(password string) (string, error) {
 	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
@@ -399,12 +399,12 @@ func (a *AuthUsecase) hashPassword(password string) (string, error) {
 	return string(hashedBytes), nil
 }
 
-func (a *AuthUsecase) verifyPassword(password, hashedPassword string) bool {
+func (a *authUsecaseImpl) verifyPassword(password, hashedPassword string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 	return err == nil
 }
 
-func (a *AuthUsecase) validatePassword(password string) error {
+func (a *authUsecaseImpl) validatePassword(password string) error {
 	if len(password) < 8 {
 		return errors.ValidationFailed.WithContext("field", "password").WithContext("message", "password must be at least 8 characters")
 	}
@@ -420,7 +420,7 @@ func (a *AuthUsecase) validatePassword(password string) error {
 
 // Additional utility methods
 
-func (a *AuthUsecase) ValidateToken(ctx context.Context, token string) (*entities.TokenClaims, error) {
+func (a *authUsecaseImpl) ValidateToken(ctx context.Context, token string) (*entities.TokenClaims, error) {
 	claims, err := jwt.ValidateToken(token, a.jwtSecret)
 	if err != nil {
 		return nil, errors.AuthTokenInvalid
@@ -431,7 +431,7 @@ func (a *AuthUsecase) ValidateToken(ctx context.Context, token string) (*entitie
 	if err != nil {
 		return nil, errors.AuthTokenInvalid
 	}
-	
+
 	tokenClaims := &entities.TokenClaims{
 		UserID: userID,
 		Email:  claims.Email,
@@ -441,7 +441,7 @@ func (a *AuthUsecase) ValidateToken(ctx context.Context, token string) (*entitie
 	return tokenClaims, nil
 }
 
-func (a *AuthUsecase) RevokeToken(ctx context.Context, token string) error {
+func (a *authUsecaseImpl) RevokeToken(ctx context.Context, token string) error {
 	// Add token to blacklist
 	blacklistKey := fmt.Sprintf("blacklist_token:%s", token)
 	if err := a.cacheRepo.SetString(ctx, blacklistKey, "revoked", 24*time.Hour); err != nil {
@@ -451,7 +451,7 @@ func (a *AuthUsecase) RevokeToken(ctx context.Context, token string) error {
 	return nil
 }
 
-func (a *AuthUsecase) CreateSession(ctx context.Context, userID uuid.UUID) (string, error) {
+func (a *authUsecaseImpl) CreateSession(ctx context.Context, userID uuid.UUID) (string, error) {
 	sessionID, err := a.generateRandomToken(32)
 	if err != nil {
 		return "", err
@@ -464,7 +464,7 @@ func (a *AuthUsecase) CreateSession(ctx context.Context, userID uuid.UUID) (stri
 	return sessionID, nil
 }
 
-func (a *AuthUsecase) ValidateSession(ctx context.Context, sessionID string) (*entities.User, error) {
+func (a *authUsecaseImpl) ValidateSession(ctx context.Context, sessionID string) (*entities.User, error) {
 	userID, err := a.cacheRepo.GetSession(ctx, sessionID)
 	if err != nil {
 		return nil, errors.AuthTokenInvalid
@@ -482,6 +482,6 @@ func (a *AuthUsecase) ValidateSession(ctx context.Context, sessionID string) (*e
 	return user, nil
 }
 
-func (a *AuthUsecase) InvalidateSession(ctx context.Context, sessionID string) error {
+func (a *authUsecaseImpl) InvalidateSession(ctx context.Context, sessionID string) error {
 	return a.cacheRepo.InvalidateSession(ctx, sessionID)
 }

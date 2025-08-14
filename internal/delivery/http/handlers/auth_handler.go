@@ -12,6 +12,8 @@ import (
 	"streaming-platform/internal/domain/entities"
 	"streaming-platform/internal/usecase/auth"
 	"streaming-platform/pkg/logger"
+
+	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
@@ -145,7 +147,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		IsActive:  true,
 	}
 
-	token, refreshToken, userProfile, err := h.authUsecase.Register(r.Context(), user, req.Password)
+	token, refreshToken, userProfile, err := h.authUsecase.Register(r.Context(), user.Email, req.Password, user.FirstName, user.LastName, user.Role)
 	if err != nil {
 		h.logger.Error("Registration failed for email %s: %v", req.Email, err)
 
@@ -252,11 +254,13 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Get userID
+	userID := r.Context().Value("user_id")
 	// Get refresh token from cookie
 	cookie, err := r.Cookie("refresh_token")
 	if err == nil && cookie.Value != "" {
 		// Invalidate refresh token
-		if err := h.authUsecase.Logout(r.Context(), cookie.Value); err != nil {
+		if err := h.authUsecase.Logout(r.Context(), userID.(uuid.UUID), cookie.Value); err != nil {
 			h.logger.Error("Logout error: %v", err)
 		}
 	}
@@ -383,7 +387,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.authUsecase.ChangePassword(r.Context(), userID.(string), req.CurrentPassword, req.NewPassword)
+	err := h.authUsecase.ChangePassword(r.Context(), userID.(uuid.UUID), req.CurrentPassword, req.NewPassword)
 	if err != nil {
 		h.logger.Error("Password change failed for user %s: %v", userID, err)
 

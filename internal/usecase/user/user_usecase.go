@@ -18,19 +18,19 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserUsecase struct {
+type userUsecaseImpl struct {
 	userRepo  interfaces.UserRepository
 	cacheRepo interfaces.CacheRepository
 }
 
-func NewUserUsecase(userRepo interfaces.UserRepository, cacheRepo interfaces.CacheRepository) *UserUsecase {
-	return &UserUsecase{
+func NewUserUsecase(userRepo interfaces.UserRepository, cacheRepo interfaces.CacheRepository) *userUsecaseImpl {
+	return &userUsecaseImpl{
 		userRepo:  userRepo,
 		cacheRepo: cacheRepo,
 	}
 }
 
-func (u *UserUsecase) GetUserByID(ctx context.Context, userID uuid.UUID) (*entities.UserProfile, error) {
+func (u *userUsecaseImpl) GetUserByID(ctx context.Context, userID uuid.UUID) (*entities.UserProfile, error) {
 	// Check cache first
 	if cachedUser, err := u.cacheRepo.GetCachedUser(ctx, userID); err == nil {
 		// Convert User to UserProfile
@@ -72,7 +72,7 @@ func (u *UserUsecase) GetUserByID(ctx context.Context, userID uuid.UUID) (*entit
 	return profile, nil
 }
 
-func (u *UserUsecase) UpdateUser(ctx context.Context, userID uuid.UUID, updates map[string]interface{}) (*entities.UserProfile, error) {
+func (u *userUsecaseImpl) UpdateUser(ctx context.Context, userID uuid.UUID, updates map[string]interface{}) (*entities.UserProfile, error) {
 	// Validate updates
 	validatedUpdates := make(map[string]interface{})
 
@@ -116,7 +116,7 @@ func (u *UserUsecase) UpdateUser(ctx context.Context, userID uuid.UUID, updates 
 	return u.GetUserByID(ctx, userID)
 }
 
-func (u *UserUsecase) DeactivateAccount(ctx context.Context, userID uuid.UUID, password, reason string) error {
+func (u *userUsecaseImpl) DeactivateAccount(ctx context.Context, userID uuid.UUID, password, reason string) error {
 	// Get user to verify password
 	user, err := u.userRepo.GetByID(ctx, userID)
 	if err != nil {
@@ -147,7 +147,7 @@ func (u *UserUsecase) DeactivateAccount(ctx context.Context, userID uuid.UUID, p
 	return nil
 }
 
-func (u *UserUsecase) GetSettings(ctx context.Context, userID uuid.UUID) (map[string]interface{}, error) {
+func (u *userUsecaseImpl) GetSettings(ctx context.Context, userID uuid.UUID) (map[string]interface{}, error) {
 	settings, err := u.userRepo.GetSettings(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user settings: %w", err)
@@ -156,7 +156,7 @@ func (u *UserUsecase) GetSettings(ctx context.Context, userID uuid.UUID) (map[st
 	return settings, nil
 }
 
-func (u *UserUsecase) UpdateSettings(ctx context.Context, userID uuid.UUID, settings map[string]interface{}) error {
+func (u *userUsecaseImpl) UpdateSettings(ctx context.Context, userID uuid.UUID, settings map[string]interface{}) error {
 	// Validate settings
 	validatedSettings := make(map[string]interface{})
 
@@ -210,7 +210,7 @@ func (u *UserUsecase) UpdateSettings(ctx context.Context, userID uuid.UUID, sett
 	return nil
 }
 
-func (u *UserUsecase) GetPublicProfile(ctx context.Context, userID uuid.UUID) (*entities.UserProfile, error) {
+func (u *userUsecaseImpl) GetPublicProfile(ctx context.Context, userID uuid.UUID) (*entities.UserProfile, error) {
 	profile, err := u.userRepo.GetPublicProfile(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get public profile: %w", err)
@@ -219,7 +219,7 @@ func (u *UserUsecase) GetPublicProfile(ctx context.Context, userID uuid.UUID) (*
 	return profile, nil
 }
 
-func (u *UserUsecase) GetUserStats(ctx context.Context, userID uuid.UUID) (*entities.UserStats, error) {
+func (u *userUsecaseImpl) GetUserStats(ctx context.Context, userID uuid.UUID) (*entities.UserStats, error) {
 	stats, err := u.userRepo.GetUserStats(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user stats: %w", err)
@@ -229,7 +229,7 @@ func (u *UserUsecase) GetUserStats(ctx context.Context, userID uuid.UUID) (*enti
 }
 
 // Favorites functionality
-func (u *UserUsecase) AddToFavorites(ctx context.Context, userID, videoID uuid.UUID) error {
+func (u *userUsecaseImpl) AddToFavorites(ctx context.Context, userID, videoID uuid.UUID) error {
 	// TODO: Implement with FavoriteRepository
 	// For now, using cache as a temporary solution
 
@@ -255,7 +255,7 @@ func (u *UserUsecase) AddToFavorites(ctx context.Context, userID, videoID uuid.U
 	return nil
 }
 
-func (u *UserUsecase) RemoveFromFavorites(ctx context.Context, userID, videoID uuid.UUID) error {
+func (u *userUsecaseImpl) RemoveFromFavorites(ctx context.Context, userID, videoID uuid.UUID) error {
 	favoritesKey := fmt.Sprintf("favorites:%s", userID.String())
 
 	if err := u.cacheRepo.SetRemove(ctx, favoritesKey, videoID.String()); err != nil {
@@ -265,20 +265,20 @@ func (u *UserUsecase) RemoveFromFavorites(ctx context.Context, userID, videoID u
 	return nil
 }
 
-func (u *UserUsecase) GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]*entities.Video, int64, error) {
+func (u *userUsecaseImpl) GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]*entities.Video, int64, error) {
 	// TODO: Implement with proper repository and pagination
 	// For now, returning empty list
 	return []*entities.Video{}, 0, nil
 }
 
 // Watch history functionality
-func (u *UserUsecase) GetWatchHistory(ctx context.Context, userID uuid.UUID, page, limit int) ([]*entities.WatchHistory, int64, error) {
+func (u *userUsecaseImpl) GetWatchHistory(ctx context.Context, userID uuid.UUID, page, limit int) ([]*entities.WatchHistory, int64, error) {
 	// TODO: Implement with WatchHistoryRepository
 	// For now, returning empty list
 	return []*entities.WatchHistory{}, 0, nil
 }
 
-func (u *UserUsecase) UpdateWatchProgress(ctx context.Context, userID, videoID uuid.UUID, position int, quality string) error {
+func (u *userUsecaseImpl) UpdateWatchProgress(ctx context.Context, userID, videoID uuid.UUID, position int, quality string) error {
 	// Store watch progress in cache
 	progressKey := fmt.Sprintf("watch_progress:%s:%s", userID.String(), videoID.String())
 
@@ -298,7 +298,7 @@ func (u *UserUsecase) UpdateWatchProgress(ctx context.Context, userID, videoID u
 }
 
 // Search functionality
-func (u *UserUsecase) SearchUsers(ctx context.Context, query string, page, limit int) ([]*entities.UserProfile, int64, error) {
+func (u *userUsecaseImpl) SearchUsers(ctx context.Context, query string, page, limit int) ([]*entities.UserProfile, int64, error) {
 	users, total, err := u.userRepo.Search(ctx, query, page, limit)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to search users: %w", err)
@@ -322,7 +322,7 @@ func (u *UserUsecase) SearchUsers(ctx context.Context, query string, page, limit
 }
 
 // Admin functionality
-func (u *UserUsecase) GetAllUsers(ctx context.Context, page, limit int) ([]*entities.UserProfile, int64, error) {
+func (u *userUsecaseImpl) GetAllUsers(ctx context.Context, page, limit int) ([]*entities.UserProfile, int64, error) {
 	users, total, err := u.userRepo.List(ctx, page, limit)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get all users: %w", err)
@@ -345,7 +345,7 @@ func (u *UserUsecase) GetAllUsers(ctx context.Context, page, limit int) ([]*enti
 	return profiles, total, nil
 }
 
-func (u *UserUsecase) UpdateUserRole(ctx context.Context, userID uuid.UUID, role string) error {
+func (u *userUsecaseImpl) UpdateUserRole(ctx context.Context, userID uuid.UUID, role string) error {
 	// Validate role
 	validRoles := []string{"student", "instructor", "admin"}
 	isValidRole := false
@@ -374,7 +374,7 @@ func (u *UserUsecase) UpdateUserRole(ctx context.Context, userID uuid.UUID, role
 	return nil
 }
 
-func (u *UserUsecase) UpdateUserStatus(ctx context.Context, userID uuid.UUID, isActive bool) error {
+func (u *userUsecaseImpl) UpdateUserStatus(ctx context.Context, userID uuid.UUID, isActive bool) error {
 	if err := u.userRepo.UpdateStatus(ctx, userID, isActive); err != nil {
 		return fmt.Errorf("failed to update user status: %w", err)
 	}
@@ -389,7 +389,7 @@ func (u *UserUsecase) UpdateUserStatus(ctx context.Context, userID uuid.UUID, is
 }
 
 // Helper methods
-func (u *UserUsecase) getFavoritesFromCache(ctx context.Context, userID uuid.UUID) ([]string, error) {
+func (u *userUsecaseImpl) getFavoritesFromCache(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	favoritesKey := fmt.Sprintf("favorites:%s", userID.String())
 
 	members, err := u.cacheRepo.SetMembers(ctx, favoritesKey)
@@ -407,7 +407,7 @@ func (u *UserUsecase) getFavoritesFromCache(ctx context.Context, userID uuid.UUI
 	return favorites, nil
 }
 
-func (u *UserUsecase) validateUserUpdate(updates map[string]interface{}) error {
+func (u *userUsecaseImpl) validateUserUpdate(updates map[string]interface{}) error {
 	validationErrors := errors.NewValidationErrors()
 
 	for field, value := range updates {

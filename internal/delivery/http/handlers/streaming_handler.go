@@ -265,3 +265,91 @@ func parseInt64(s string) int64 {
 	i, _ := strconv.ParseInt(s, 10, 64)
 	return i
 }
+
+func (h *StreamingHandler) GetMasterPlaylist(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	videoID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid video ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verificar acceso al video
+	userID := h.getUserIDFromContext(r)
+	hasAccess, err := h.streamingUsecase.CheckVideoAccess(r.Context(), userID, videoID)
+	if err != nil {
+		h.logger.Error("Error checking video access: %v", err)
+		http.Error(w, "Error checking access", http.StatusInternalServerError)
+		return
+	}
+
+	if !hasAccess {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	// Obtener playlist HLS
+	playlist, err := h.streamingUsecase.GetHLSPlaylist(r.Context(), videoID)
+	if err != nil {
+		h.logger.Error("Error getting HLS playlist: %v", err)
+		http.Error(w, "Playlist not found", http.StatusNotFound)
+		return
+	}
+
+	// Devolver master playlist
+	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+	w.Header().Set("Cache-Control", "public, max-age=300") // 5 minutos
+	w.Write([]byte(playlist.MasterPlaylist))
+
+	// Registrar sesión de streaming
+	go h.streamingUsecase.RecordStreamingSession(r.Context(), userID, videoID, "auto")
+}
+
+// GetPlaylist serves the variant HLS playlist for a specific quality
+func (h *StreamingHandler) GetPlaylist(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	videoID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		http.Error(w, "Invalid video ID", http.StatusBadRequest)
+		return
+	}
+
+	quality := vars["quality"]
+	if quality == "" {
+		quality = "720p" // default quality
+	}
+
+	// Verificar acceso
+	userID := h.getUserIDFromContext(r)
+	hasAccess, err := h.streamingUsecase.CheckVideoAccess(r.Context(), userID, videoID)
+	if err != nil {
+		h.logger.Error("Error checking video access: %v", err)
+		http.Error(w, "Error checking access", http.StatusInternalServerError)
+		return
+	}
+
+	if !hasAccess {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
+
+	// Devolver variant playlist específico
+	variantPlaylist, err := h.streamingUsecase.GetVariantPlaylist(r.Context(), videoID, quality)
+	if err != nil {
+		h.logger.Error("Error getting variant playlist: %v", err)
+		http.Error(w, "Variant playlist not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Write([]byte(variantPlaylist))
+
+	// Registrar sesión de streaming
+	go h.streamingUsecase.RecordStreamingSession(r.Context(), userID, videoID, quality)
+}
+
+// GetSegment serves HLS segments
+func (h *StreamingHandler) GetSegment(w http.ResponseWriter, r *http.Request) {
+	h.GetHLSSegment(w, r) // Reutilizar el método existente
+}
