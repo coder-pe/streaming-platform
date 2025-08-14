@@ -13,10 +13,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"streaming-platform/internal/domain/entities"
 	"streaming-platform/internal/usecase/video"
 	"streaming-platform/pkg/logger"
+
+	"github.com/google/uuid"
 )
 
 type TranscodingWorker struct {
@@ -31,7 +32,7 @@ func NewTranscodingWorker(videoUsecase video.VideoUsecase, ffmpegPath, storagePa
 		videoUsecase: videoUsecase,
 		ffmpegPath:   ffmpegPath,
 		storagePath:  storagePath,
-		logger:       logger.NewLogger("info"),
+		logger:       logger.NewLogger(),
 	}
 }
 
@@ -91,7 +92,7 @@ func (w *TranscodingWorker) ProcessJob(ctx context.Context, job map[string]inter
 		}
 
 		playlistPath := filepath.Join(hlsDir, "playlist.m3u8")
-		
+
 		if err := w.transcodeToHLS(filePath, playlistPath, profile); err != nil {
 			w.logger.Error("Error transcoding %s: %v", profile.Quality, err)
 			continue
@@ -119,7 +120,7 @@ func (w *TranscodingWorker) ProcessJob(ctx context.Context, job map[string]inter
 
 		// Agregar al master playlist
 		bandwidth := parseBitrate(profile.Bitrate) * 1000 // convertir a bps
-		masterPlaylistContent.WriteString(fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d\n", 
+		masterPlaylistContent.WriteString(fmt.Sprintf("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d\n",
 			bandwidth, profile.Width, profile.Height))
 		masterPlaylistContent.WriteString(fmt.Sprintf("hls/%s/playlist.m3u8\n", profile.Quality))
 	}
@@ -279,7 +280,7 @@ func (w *TranscodingWorker) generateThumbnail(inputPath, outputPath string) erro
 
 func (w *TranscodingWorker) calculateHLSSize(hlsDir string) (int64, error) {
 	var totalSize int64
-	
+
 	err := filepath.Walk(hlsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -289,7 +290,7 @@ func (w *TranscodingWorker) calculateHLSSize(hlsDir string) (int64, error) {
 		}
 		return nil
 	})
-	
+
 	return totalSize, err
 }
 

@@ -11,12 +11,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"streaming-platform/internal/usecase/streaming"
+	"streaming-platform/pkg/logger"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"streaming-platform/internal/usecase/streaming"
-	"streaming-platform/pkg/logger"
 )
 
 type StreamingHandler struct {
@@ -97,7 +99,7 @@ func (h *StreamingHandler) GetHLSSegment(w http.ResponseWriter, r *http.Request)
 
 	segment := vars["segment"]
 	quality := r.URL.Query().Get("quality")
-	
+
 	if quality == "" {
 		quality = "720p" // default quality
 	}
@@ -118,7 +120,7 @@ func (h *StreamingHandler) GetHLSSegment(w http.ResponseWriter, r *http.Request)
 
 	// Construir ruta del segmento
 	segmentPath := filepath.Join("storage", "videos", videoID.String(), "hls", quality, segment)
-	
+
 	// Verificar que el archivo existe
 	if _, err := os.Stat(segmentPath); os.IsNotExist(err) {
 		http.Error(w, "Segment not found", http.StatusNotFound)
@@ -164,7 +166,7 @@ func (h *StreamingHandler) GetStreamingInfo(w http.ResponseWriter, r *http.Reque
 	}
 
 	userID := h.getUserIDFromContext(r)
-	
+
 	streamingInfo, err := h.streamingUsecase.GetStreamingInfo(r.Context(), userID, videoID)
 	if err != nil {
 		h.logger.Error("Error getting streaming info: %v", err)
@@ -216,7 +218,7 @@ func (h *StreamingHandler) serveRange(w http.ResponseWriter, r *http.Request, fi
 	}
 
 	fileSize := stat.Size()
-	
+
 	// Parsear range header
 	ranges := strings.Split(strings.TrimPrefix(rangeHeader, "bytes="), "-")
 	if len(ranges) != 2 {
@@ -225,11 +227,11 @@ func (h *StreamingHandler) serveRange(w http.ResponseWriter, r *http.Request, fi
 	}
 
 	var start, end int64
-	
+
 	if ranges[0] != "" {
 		start = parseInt64(ranges[0])
 	}
-	
+
 	if ranges[1] != "" {
 		end = parseInt64(ranges[1])
 	} else {
@@ -263,4 +265,3 @@ func parseInt64(s string) int64 {
 	i, _ := strconv.ParseInt(s, 10, 64)
 	return i
 }
-

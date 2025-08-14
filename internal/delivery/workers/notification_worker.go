@@ -26,7 +26,7 @@ func NewNotificationWorker(smtpHost, smtpPort, smtpUsername, smtpPassword string
 		smtpPort:     smtpPort,
 		smtpUsername: smtpUsername,
 		smtpPassword: smtpPassword,
-		logger:       logger.NewLogger("info"),
+		logger:       logger.NewLogger(),
 	}
 }
 

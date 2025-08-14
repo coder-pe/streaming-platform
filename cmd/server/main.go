@@ -6,14 +6,12 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
 	"streaming-platform/internal/delivery/http/handlers"
 	"streaming-platform/internal/delivery/http/middleware"
 	"streaming-platform/internal/delivery/workers"
@@ -26,15 +24,17 @@ import (
 	"streaming-platform/pkg/config"
 	"streaming-platform/pkg/database"
 	"streaming-platform/pkg/logger"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
 	// Configuración
 	cfg := config.Load()
-	
+
 	// Logger
 	log := logger.NewLogger(cfg.LogLevel)
-	
+
 	// Conexiones a base de datos
 	db, err := database.NewPostgres(cfg.DatabaseURL)
 	if err != nil {
@@ -74,7 +74,7 @@ func main() {
 
 	// Router
 	router := mux.NewRouter()
-	
+
 	// Middleware
 	router.Use(middleware.CORS())
 	router.Use(middleware.Logging(log))
@@ -89,16 +89,16 @@ func main() {
 	// Rutas protegidas
 	protected := router.PathPrefix("/api").Subrouter()
 	protected.Use(middleware.JWTAuth(cfg.JWTSecret))
-	
+
 	// User routes
 	protected.HandleFunc("/user/profile", userHandler.GetProfile).Methods("GET")
 	protected.HandleFunc("/user/profile", userHandler.UpdateProfile).Methods("PUT")
-	
+
 	// Video routes
 	protected.HandleFunc("/videos/upload", videoHandler.UploadVideo).Methods("POST")
 	protected.HandleFunc("/videos/{id}/edit", videoHandler.UpdateVideo).Methods("PUT")
 	protected.HandleFunc("/videos/{id}/delete", videoHandler.DeleteVideo).Methods("DELETE")
-	
+
 	// Streaming routes
 	protected.HandleFunc("/stream/{id}/playlist", streamingHandler.GetHLSPlaylist).Methods("GET")
 	protected.HandleFunc("/stream/{id}/segment/{segment}", streamingHandler.GetHLSSegment).Methods("GET")
@@ -132,14 +132,13 @@ func main() {
 	<-c
 
 	log.Info("Shutting down server...")
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown: %v", err)
 	}
-	
+
 	log.Info("Server exited")
 }
-

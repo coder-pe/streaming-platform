@@ -282,15 +282,23 @@ func (h *UserHandler) GetWatchHistory(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 
-	history, err := h.userUsecase.GetWatchHistory(r.Context(), userUUID, page, limit)
+	history, totalCount, err := h.userUsecase.GetWatchHistory(r.Context(), userUUID, page, limit)
+
 	if err != nil {
 		h.logger.Error("Error getting watch history: %v", err)
 		http.Error(w, "Failed to get watch history", http.StatusInternalServerError)
 		return
 	}
 
+	response := map[string]interface{}{
+		"data":        history,
+		"total_count": totalCount,
+		"page":        page,
+		"limit":       limit,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(history)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
@@ -317,15 +325,23 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 
-	favorites, err := h.userUsecase.GetFavorites(r.Context(), userUUID, page, limit)
+	favorites, totalCount, err := h.userUsecase.GetFavorites(r.Context(), userUUID, page, limit)
+
 	if err != nil {
 		h.logger.Error("Error getting favorites: %v", err)
 		http.Error(w, "Failed to get favorites", http.StatusInternalServerError)
 		return
 	}
 
+	response := map[string]interface{}{
+		"data":        favorites,
+		"total_count": totalCount,
+		"page":        page,
+		"limit":       limit,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(favorites)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *UserHandler) AddToFavorites(w http.ResponseWriter, r *http.Request) {
