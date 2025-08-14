@@ -440,3 +440,11 @@ func (u *userUsecaseImpl) validateUserUpdate(updates map[string]interface{}) err
 
 	return nil
 }
+
+func (u *userUsecaseImpl) DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	if err := u.userRepo.Delete(ctx, userID); err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	_ = u.cacheRepo.InvalidateUserCache(ctx, userID) // best-effort
+	return nil
+}

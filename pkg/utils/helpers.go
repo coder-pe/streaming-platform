@@ -289,15 +289,34 @@ func (t TimeUtils) IsBusinessDay(date time.Time) bool {
 	return weekday >= time.Monday && weekday <= time.Friday
 }
 
-// GetStartOfDay returns the start of the day for a given time
-func (t TimeUtils) GetStartOfDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+func (TimeUtils) StartOfDay(t time.Time) time.Time {
+	y, m, d := t.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
 }
 
-// GetEndOfDay returns the end of the day for a given time
-func (t TimeUtils) GetEndOfDay(t time.Time) time.Time {
-	return time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 999999999, t.Location())
+func (TimeUtils) EndOfDay(t time.Time) time.Time {
+	y, m, d := t.Date()
+	// Último nanosegundo del día: 23:59:59.999999999
+	return time.Date(y, m, d, 23, 59, 59, int(time.Second)-1, t.Location())
 }
+
+func StartOfDay(t time.Time) time.Time { return (TimeUtils{}).StartOfDay(t) }
+func EndOfDay(t time.Time) time.Time   { return (TimeUtils{}).EndOfDay(t) }
+
+// ----- Compatibilidad (wrappers) -----
+// Deprecated: usa StartOfDay.
+func (TimeUtils) GetStartOfDay(t time.Time) time.Time {
+	return (TimeUtils{}).StartOfDay(t)
+}
+
+// Deprecated: usa EndOfDay.
+func (TimeUtils) GetEndOfDay(t time.Time) time.Time {
+	return (TimeUtils{}).EndOfDay(t)
+}
+
+// Si en algún lugar del proyecto se llamaban como funciones de paquete:
+func GetStartOfDay(t time.Time) time.Time { return StartOfDay(t) } // Deprecated
+func GetEndOfDay(t time.Time) time.Time   { return EndOfDay(t) }   // Deprecated
 
 // CryptoUtils provides cryptographic utility functions
 type CryptoUtils struct{}

@@ -24,6 +24,7 @@ type HLSVariant struct {
 }
 
 type StreamingSession struct {
+	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
 	VideoID   uuid.UUID `json:"video_id"`
 	Quality   string    `json:"quality"`

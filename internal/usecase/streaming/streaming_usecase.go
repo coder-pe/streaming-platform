@@ -250,6 +250,7 @@ func (s *streamingUsecaseImpl) CreateStreamingSession(ctx context.Context, userI
 
 	// Create streaming session
 	session := &entities.StreamingSession{
+		ID:        uuid.New(),
 		UserID:    userID,
 		VideoID:   videoID,
 		Quality:   quality,
@@ -258,65 +259,71 @@ func (s *streamingUsecaseImpl) CreateStreamingSession(ctx context.Context, userI
 		UpdatedAt: time.Now(),
 	}
 
-	// Store session in cache
-	sessionKey := fmt.Sprintf("streaming_session:%s:%s", userID.String(), videoID.String())
+	// Guardar por sessionID
+	sessionKey := fmt.Sprintf("streaming_session:%s", session.ID.String())
 	if err := s.cacheRepo.Set(ctx, sessionKey, session, 4*time.Hour); err != nil {
 		return nil, fmt.Errorf("failed to store streaming session: %w", err)
+	}
+
+	// Índice userID+videoID -> sessionID (para UpdateStreamingSession)
+	indexKey := fmt.Sprintf("streaming_session_idx:%s:%s", userID.String(), videoID.String())
+	if err := s.cacheRepo.SetString(ctx, indexKey, session.ID.String(), 4*time.Hour); err != nil {
+		// no fallamos la creación por el índice
+		fmt.Printf("Warning: failed to index streaming session: %v\n", err)
 	}
 
 	return session, nil
 }
 
 func (s *streamingUsecaseImpl) UpdateStreamingSession(ctx context.Context, userID, videoID uuid.UUID, position int) error {
-	sessionKey := fmt.Sprintf("streaming_session:%s:%s", userID.String(), videoID.String())
+	indexKey := fmt.Sprintf("streaming_session_idx:%s:%s", userID.String(), videoID.String())
 
-	// Get existing session
-	var session entities.StreamingSession
-	if err := s.cacheRepo.Get(ctx, sessionKey, &session); err != nil {
-		// Session doesn't exist, create a new one
-		_, err := s.CreateStreamingSession(ctx, userID, videoID, "720p")
-		if err != nil {
+	// obtener sessionID; si no existe, crear sesión
+	sessionIDStr, err := s.cacheRepo.GetString(ctx, indexKey)
+	if err != nil || sessionIDStr == "" {
+		if _, err := s.CreateStreamingSession(ctx, userID, videoID, "720p"); err != nil {
 			return fmt.Errorf("failed to create streaming session: %w", err)
 		}
-
-		// Get the newly created session
-		if err := s.cacheRepo.Get(ctx, sessionKey, &session); err != nil {
-			return fmt.Errorf("failed to get streaming session: %w", err)
+		// reintentar obtener el sessionID
+		sessionIDStr, err = s.cacheRepo.GetString(ctx, indexKey)
+		if err != nil || sessionIDStr == "" {
+			return fmt.Errorf("failed to get session id after creation")
 		}
 	}
 
-	// Update session
+	sessionKey := fmt.Sprintf("streaming_session:%s", sessionIDStr)
+
+	var session entities.StreamingSession
+	if err := s.cacheRepo.Get(ctx, sessionKey, &session); err != nil {
+		return fmt.Errorf("failed to get streaming session: %w", err)
+	}
+
 	session.Position = position
 	session.UpdatedAt = time.Now()
 
-	// Store updated session
-	if err := s.cacheRepo.Set(ctx, sessionKey, session, 4*time.Hour); err != nil {
+	if err := s.cacheRepo.Set(ctx, sessionKey, &session, 4*time.Hour); err != nil {
 		return fmt.Errorf("failed to update streaming session: %w", err)
 	}
 
 	return nil
 }
 
-func (s *streamingUsecaseImpl) EndStreamingSession(ctx context.Context, userID, videoID uuid.UUID) error {
-	sessionKey := fmt.Sprintf("streaming_session:%s:%s", userID.String(), videoID.String())
+func (s *streamingUsecaseImpl) EndStreamingSession(ctx context.Context, sessionID uuid.UUID) error {
+	sessionKey := fmt.Sprintf("streaming_session:%s", sessionID.String())
 
-	// Get session to record final stats
 	var session entities.StreamingSession
 	if err := s.cacheRepo.Get(ctx, sessionKey, &session); err == nil {
-		// Calculate watch duration
+		// stats (best-effort)
 		watchDuration := int(time.Since(session.StartedAt).Seconds())
-
-		// TODO: Record analytics
-		// - Total watch time
-		// - Completion percentage
-		// - Quality used
-		// - Bandwidth consumption
-
 		fmt.Printf("Streaming session ended - User: %s, Video: %s, Duration: %d seconds\n",
-			userID, videoID, watchDuration)
+			session.UserID, session.VideoID, watchDuration)
+
+		// limpiar el índice
+		indexKey := fmt.Sprintf("streaming_session_idx:%s:%s", session.UserID.String(), session.VideoID.String())
+		_ = s.cacheRepo.Delete(ctx, indexKey)
 	}
 
-	// Remove session from cache
+	// borrar la sesión
 	if err := s.cacheRepo.Delete(ctx, sessionKey); err != nil {
 		return fmt.Errorf("failed to delete streaming session: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	"streaming-platform/internal/domain/entities"
@@ -91,65 +92,62 @@ func (a *authUsecaseImpl) Login(ctx context.Context, email, password string) (st
 	return accessToken, refreshToken, profile, nil
 }
 
-func (a *authUsecaseImpl) Register(ctx context.Context, user *entities.User, password string) (string, string, *entities.UserProfile, error) {
-	// Validate password strength
+func (a *authUsecaseImpl) Register(ctx context.Context, email, password string, firstName, lastName, role string) (string, string, *entities.UserProfile, error) {
+	// Validate password
 	if err := a.validatePassword(password); err != nil {
 		return "", "", nil, err
 	}
 
-	// Check if user already exists
-	existingUser, err := a.userRepo.GetByEmail(ctx, user.Email)
-	if err == nil && existingUser != nil {
+	// Check existing user
+	existing, err := a.userRepo.GetByEmail(ctx, email)
+	if err == nil && existing != nil {
 		return "", "", nil, errors.UserAlreadyExists
 	}
-
-	// Hash password
-	hashedPassword, err := a.hashPassword(password)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to hash password: %w", err)
-	}
-
-	// Set user fields
-	user.PasswordHash = hashedPassword
-	user.IsActive = true
-	if user.Role == "" {
-		user.Role = "student" // Default role
+	if err != nil && err != errors.UserNotFound {
+		return "", "", nil, fmt.Errorf("failed to check user: %w", err)
 	}
 
 	// Create user
-	if err := a.userRepo.Create(ctx, user); err != nil {
+	hashed, err := a.hashPassword(password)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+	u := &entities.User{
+		Email:        strings.ToLower(email),
+		PasswordHash: hashed,
+		FirstName:    firstName,
+		LastName:     lastName,
+		Role:         role,
+		IsActive:     true,
+	}
+	if u.Role == "" {
+		u.Role = "student"
+	}
+	if err := a.userRepo.Create(ctx, u); err != nil {
 		return "", "", nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	// Generate tokens
-	accessToken, err := a.generateAccessToken(user)
+	// Tokens + profile
+	access, err := a.generateAccessToken(u)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
-
-	refreshToken, err := a.generateRefreshToken(user.ID)
+	refresh, err := a.generateRefreshToken(u.ID)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
-
-	// Create user profile
 	profile := &entities.UserProfile{
-		ID:        user.ID,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Role:      user.Role,
-		Avatar:    user.Avatar,
-		CreatedAt: user.CreatedAt,
+		ID:        u.ID,
+		Email:     u.Email,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		Role:      u.Role,
+		Avatar:    u.Avatar,
+		CreatedAt: u.CreatedAt,
 	}
+	_ = a.cacheRepo.CacheUser(ctx, u) // best-effort
 
-	// Cache user
-	if err := a.cacheRepo.CacheUser(ctx, user); err != nil {
-		// Log error but don't fail registration
-		fmt.Printf("Warning: failed to cache user: %v\n", err)
-	}
-
-	return accessToken, refreshToken, profile, nil
+	return access, refresh, profile, nil
 }
 
 func (a *authUsecaseImpl) RefreshToken(ctx context.Context, refreshToken string) (string, string, *entities.UserProfile, error) {
@@ -205,13 +203,12 @@ func (a *authUsecaseImpl) RefreshToken(ctx context.Context, refreshToken string)
 	return newAccessToken, newRefreshToken, profile, nil
 }
 
-func (a *authUsecaseImpl) Logout(ctx context.Context, refreshToken string) error {
-	// Invalidate refresh token
-	refreshKey := fmt.Sprintf("refresh_token:%s", refreshToken)
+func (a *authUsecaseImpl) Logout(ctx context.Context, userID uuid.UUID, token string) error {
+	// tratamos 'token' como refresh token
+	refreshKey := fmt.Sprintf("refresh_token:%s", token)
 	if err := a.cacheRepo.Delete(ctx, refreshKey); err != nil {
 		return fmt.Errorf("failed to invalidate refresh token: %w", err)
 	}
-
 	return nil
 }
 
@@ -289,15 +286,9 @@ func (a *authUsecaseImpl) ResetPassword(ctx context.Context, token, newPassword 
 	return nil
 }
 
-func (a *authUsecaseImpl) ChangePassword(ctx context.Context, userID, currentPassword, newPassword string) error {
-	// Parse user ID
-	uid, err := uuid.Parse(userID)
-	if err != nil {
-		return errors.AuthTokenInvalid
-	}
-
+func (a *authUsecaseImpl) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
 	// Get user
-	user, err := a.userRepo.GetByID(ctx, uid)
+	user, err := a.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		if err == errors.UserNotFound {
 			return errors.AuthUnauthorized
@@ -310,28 +301,19 @@ func (a *authUsecaseImpl) ChangePassword(ctx context.Context, userID, currentPas
 		return errors.AuthInvalidCredentials.WithContext("field", "current_password")
 	}
 
-	// Validate new password
+	// Validate & update
 	if err := a.validatePassword(newPassword); err != nil {
 		return err
 	}
-
-	// Hash new password
 	hashedPassword, err := a.hashPassword(newPassword)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
-
-	// Update password
-	if err := a.userRepo.UpdatePassword(ctx, uid, hashedPassword); err != nil {
+	if err := a.userRepo.UpdatePassword(ctx, userID, hashedPassword); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 
-	// Invalidate user cache
-	if err := a.cacheRepo.InvalidateUserCache(ctx, uid); err != nil {
-		// Log error but don't fail change
-		fmt.Printf("Warning: failed to invalidate user cache: %v\n", err)
-	}
-
+	_ = a.cacheRepo.InvalidateUserCache(ctx, userID) // best-effort
 	return nil
 }
 
