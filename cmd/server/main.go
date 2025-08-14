@@ -108,7 +108,7 @@ func main() {
 
 	// Static files
 	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))))
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/templates/")))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/")))
 
 	// Server
 	srv := &http.Server{
