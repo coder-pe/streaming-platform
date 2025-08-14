@@ -2,6 +2,8 @@
 // Email: miguel.coder.per@gmail.com
 // License: MIT
 
+// Estos son los cambios que necesitas hacer en cmd/server/main.go
+
 package main
 
 import (
@@ -32,19 +34,23 @@ func main() {
 	// Configuración
 	cfg := config.Load()
 
-	// Logger
-	log := logger.NewLogger(cfg.LogLevel)
+	// Logger - SIN ARGUMENTOS
+	log := logger.NewLogger()
 
 	// Conexiones a base de datos
 	db, err := database.NewPostgres(cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal("Error connecting to PostgreSQL: %v", err)
+		// USAR log.Error en lugar de log.Fatal
+		log.Error("Error connecting to PostgreSQL: %v", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	redisClient, err := database.NewRedis(cfg.RedisURL)
 	if err != nil {
-		log.Fatal("Error connecting to Redis: %v", err)
+		// USAR log.Error en lugar de log.Fatal
+		log.Error("Error connecting to Redis: %v", err)
+		os.Exit(1)
 	}
 	defer redisClient.Close()
 
@@ -53,21 +59,22 @@ func main() {
 	videoRepo := postgres.NewVideoRepository(db)
 	cacheRepo := redis.NewCacheRepository(redisClient)
 
-	// Use cases
+	// Use cases - USAR PUNTEROS EN LOS HANDLERS
 	authUsecase := auth.NewAuthUsecase(userRepo, cacheRepo, cfg.JWTSecret)
 	userUsecase := user.NewUserUsecase(userRepo, cacheRepo)
 	videoUsecase := video.NewVideoUsecase(videoRepo, cacheRepo)
-	streamingUsecase := streaming.NewStreamingUsecase(videoRepo, cacheRepo, cfg.CDNBaseURL)
+	// AGREGAR EL CUARTO PARÁMETRO A streaming
+	streamingUsecase := streaming.NewStreamingUsecase(videoRepo, cacheRepo, cfg.CDNBaseURL, cfg.JWTSecret)
 
-	// Handlers
-	authHandler := handlers.NewAuthHandler(authUsecase, log)
-	userHandler := handlers.NewUserHandler(userUsecase, log)
-	videoHandler := handlers.NewVideoHandler(videoUsecase, log)
+	// Handlers - PASAR PUNTEROS
+	authHandler := handlers.NewAuthHandler(*authUsecase, log)
+	userHandler := handlers.NewUserHandler(*userUsecase, log)
+	videoHandler := handlers.NewVideoHandler(*videoUsecase, log)
 	streamingHandler := handlers.NewStreamingHandler(streamingUsecase, log)
 
 	// Worker Pool
 	workerPool := workers.NewWorkerPool(cfg.WorkerPoolSize, log)
-	transcodingWorker := workers.NewTranscodingWorker(videoUsecase, cfg.FFmpegPath, cfg.StoragePath)
+	transcodingWorker := workers.NewTranscodingWorker(*videoUsecase, cfg.FFmpegPath, cfg.StoragePath)
 	workerPool.RegisterWorker("transcoding", transcodingWorker)
 	workerPool.Start()
 	defer workerPool.Stop()
@@ -95,49 +102,48 @@ func main() {
 	protected.HandleFunc("/user/profile", userHandler.UpdateProfile).Methods("PUT")
 
 	// Video routes
-	protected.HandleFunc("/videos/upload", videoHandler.UploadVideo).Methods("POST")
-	protected.HandleFunc("/videos/{id}/edit", videoHandler.UpdateVideo).Methods("PUT")
-	protected.HandleFunc("/videos/{id}/delete", videoHandler.DeleteVideo).Methods("DELETE")
+	protected.HandleFunc("/videos", videoHandler.UploadVideo).Methods("POST")
+	protected.HandleFunc("/videos/{id}", videoHandler.UpdateVideo).Methods("PUT")
+	protected.HandleFunc("/videos/{id}", videoHandler.DeleteVideo).Methods("DELETE")
 
 	// Streaming routes
-	protected.HandleFunc("/stream/{id}/playlist", streamingHandler.GetHLSPlaylist).Methods("GET")
-	protected.HandleFunc("/stream/{id}/segment/{segment}", streamingHandler.GetHLSSegment).Methods("GET")
+	protected.HandleFunc("/stream/{id}/master.m3u8", streamingHandler.GetMasterPlaylist).Methods("GET")
+	protected.HandleFunc("/stream/{id}/{quality}/playlist.m3u8", streamingHandler.GetPlaylist).Methods("GET")
+	protected.HandleFunc("/stream/{id}/{quality}/{segment}", streamingHandler.GetSegment).Methods("GET")
 
-	// Servir archivos estáticos
+	// Static files
 	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))))
-	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./web/index.html")
-	})
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/templates/")))
 
-	// Servidor HTTP
+	// Server
 	srv := &http.Server{
-		Handler:      router,
 		Addr:         ":" + cfg.Port,
-		WriteTimeout: 15 * time.Second,
+		Handler:      router,
 		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown
+	// Start server
 	go func() {
 		log.Info("Server starting on port %s", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("Server failed to start: %v", err)
+			log.Error("Server failed to start: %v", err)
 		}
 	}()
 
-	// Esperar señal de interrupción
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	<-c
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Info("Server is shutting down...")
 
-	log.Info("Shutting down server...")
-
+	// Graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown: %v", err)
+		log.Error("Server forced to shutdown: %v", err)
 	}
 
 	log.Info("Server exited")
