@@ -13,23 +13,23 @@ import (
 	"strconv"
 	"strings"
 
-	"streaming-platform/internal/domain/entities"
-	"streaming-platform/internal/usecase/video"
+	"streaming-platform/internal/core/domain"
+	"streaming-platform/internal/core/ports/input"
 	"streaming-platform/pkg/logger"
 
 	"github.com/google/uuid"
 )
 
 type TranscodingWorker struct {
-	videoUsecase video.VideoUsecase
+	videoService input.VideoService
 	ffmpegPath   string
 	storagePath  string
 	logger       logger.Logger
 }
 
-func NewTranscodingWorker(videoUsecase video.VideoUsecase, ffmpegPath, storagePath string) *TranscodingWorker {
+func NewTranscodingWorker(videoService input.VideoService, ffmpegPath, storagePath string) *TranscodingWorker {
 	return &TranscodingWorker{
-		videoUsecase: videoUsecase,
+		videoService: videoService,
 		ffmpegPath:   ffmpegPath,
 		storagePath:  storagePath,
 		logger:       logger.NewLogger(),
@@ -74,7 +74,7 @@ func (w *TranscodingWorker) ProcessJob(ctx context.Context, job map[string]inter
 		{Quality: "360p", Width: 640, Height: 360, Bitrate: "500k", AudioBitrate: "64k"},
 	}
 
-	var videoFiles []entities.VideoFile
+	var videoFiles []domain.VideoFile
 	var masterPlaylistContent strings.Builder
 	masterPlaylistContent.WriteString("#EXTM3U\n#EXT-X-VERSION:3\n\n")
 
@@ -106,7 +106,7 @@ func (w *TranscodingWorker) ProcessJob(ctx context.Context, job map[string]inter
 		}
 
 		// Crear registro de archivo de video
-		videoFile := entities.VideoFile{
+		videoFile := domain.VideoFile{
 			ID:       uuid.New(),
 			VideoID:  videoID,
 			Quality:  profile.Quality,
@@ -138,17 +138,17 @@ func (w *TranscodingWorker) ProcessJob(ctx context.Context, job map[string]inter
 	}
 
 	// Actualizar video en base de datos
-	video, err := w.videoUsecase.GetVideoByID(ctx, videoID)
+	video, err := w.videoService.GetVideoByID(ctx, videoID)
 	if err != nil {
 		return fmt.Errorf("error getting video: %v", err)
 	}
 
 	video.Duration = videoInfo.Duration
-	video.Status = entities.VideoStatusReady
+	video.Status = domain.VideoStatusReady
 	video.Thumbnail = filepath.Join("videos", videoID.String(), "thumbnail.jpg")
 	video.VideoFiles = videoFiles
 
-	if err := w.videoUsecase.UpdateVideoWithFiles(ctx, video); err != nil {
+	if err := w.videoService.UpdateVideo(ctx, video); err != nil {
 		return fmt.Errorf("error updating video: %v", err)
 	}
 

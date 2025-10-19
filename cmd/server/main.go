@@ -13,11 +13,11 @@ import (
 	"time"
 
 	httpHandlers "streaming-platform/internal/adapters/input/http"
+	"streaming-platform/internal/adapters/input/http/middleware"
 	postgresAdapter "streaming-platform/internal/adapters/output/persistence/postgres"
 	redisAdapter "streaming-platform/internal/adapters/output/persistence/redis"
 	"streaming-platform/internal/core/services"
-	"streaming-platform/internal/delivery/http/middleware"
-	"streaming-platform/internal/delivery/workers"
+	"streaming-platform/internal/infrastructure/workers"
 	"streaming-platform/pkg/config"
 	"streaming-platform/pkg/database"
 	"streaming-platform/pkg/logger"
