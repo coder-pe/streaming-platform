@@ -14,7 +14,7 @@
     <meta name="description" content="Plataforma de aprendizaje con video tutoriales de programación, diseño y más">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/styles.css?v=2025.01.19.1200">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.0.4/video-js.css" rel="stylesheet">
 </head>
 <body>
@@ -26,10 +26,10 @@
             </div>
             <div class="nav-menu">
                 <ul class="nav-list">
-                    <li><a href="#home" class="nav-link active" data-route="home">Inicio</a></li>
-                    <li><a href="#videos" class="nav-link" data-route="videos">Videos</a></li>
-                    <li><a href="#upload" class="nav-link auth-required" data-route="upload">Subir</a></li>
-                    <li><a href="#profile" class="nav-link auth-required" data-route="profile">Perfil</a></li>
+                    <li><a href="/" class="nav-link active" data-route="home">Inicio</a></li>
+                    <li><a href="/videos" class="nav-link" data-route="videos">Videos</a></li>
+                    <li><a href="/upload" class="nav-link auth-required" data-route="upload">Subir</a></li>
+                    <li><a href="/profile" class="nav-link auth-required" data-route="profile">Perfil</a></li>
                 </ul>
             </div>
             <div class="nav-search">
@@ -156,10 +156,10 @@
             <div class="footer-section">
                 <h4>Enlaces</h4>
                 <ul>
-                    <li><a href="#home" data-route="home">Inicio</a></li>
-                    <li><a href="#videos" data-route="videos">Videos</a></li>
-                    <li><a href="#about">Acerca de</a></li>
-                    <li><a href="#contact">Contacto</a></li>
+                    <li><a href="/" data-route="home">Inicio</a></li>
+                    <li><a href="/videos" data-route="videos">Videos</a></li>
+                    <li><a href="/about">Acerca de</a></li>
+                    <li><a href="/contact">Contacto</a></li>
                 </ul>
             </div>
             <div class="footer-section">
@@ -181,7 +181,7 @@
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.0.4/video.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-hls/5.15.0/videojs-contrib-hls.min.js"></script>
-    <script src="/static/js/app.js" type="module"></script>
+    <script src="/static/js/app.js?v=2025.01.19.1200" type="module"></script>
     <script>
         // Service Worker para PWA
         if ('serviceWorker' in navigator) {

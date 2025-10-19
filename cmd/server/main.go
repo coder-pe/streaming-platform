@@ -79,12 +79,16 @@ func main() {
 	router.Use(middleware.CORS())
 	router.Use(middleware.Logging(log))
 	router.Use(middleware.RateLimit(redisClient))
+	router.Use(middleware.CacheControl()) // Cache control para archivos estáticos
 
 	// Rutas públicas
 	router.HandleFunc("/api/auth/login", authHandler.Login).Methods("POST")
 	router.HandleFunc("/api/auth/register", authHandler.Register).Methods("POST")
+	router.HandleFunc("/api/auth/refresh", authHandler.RefreshToken).Methods("POST")
 	router.HandleFunc("/api/videos", videoHandler.GetPublicVideos).Methods("GET")
 	router.HandleFunc("/api/videos/{id}", videoHandler.GetVideo).Methods("GET")
+	router.HandleFunc("/api/users/{id}/stats", userHandler.GetUserStats).Methods("GET")
+	router.HandleFunc("/api/users/{id}", userHandler.GetPublicProfile).Methods("GET")
 
 	// Rutas protegidas
 	protected := router.PathPrefix("/api").Subrouter()
@@ -93,6 +97,8 @@ func main() {
 	// User routes
 	protected.HandleFunc("/user/profile", userHandler.GetProfile).Methods("GET")
 	protected.HandleFunc("/user/profile", userHandler.UpdateProfile).Methods("PUT")
+	protected.HandleFunc("/user/stats", userHandler.GetUserStats).Methods("GET")
+	protected.HandleFunc("/users/{id}/avatar", userHandler.UploadAvatar).Methods("POST")
 
 	// Video routes
 	protected.HandleFunc("/videos", videoHandler.UploadVideo).Methods("POST")
@@ -104,9 +110,14 @@ func main() {
 	protected.HandleFunc("/stream/{id}/{quality}/playlist.m3u8", streamingHandler.GetPlaylist).Methods("GET")
 	protected.HandleFunc("/stream/{id}/{quality}/{segment}", streamingHandler.GetSegment).Methods("GET")
 
-	// Static files
+	// Static files y SPA fallback
+	// Servir archivos estáticos primero
 	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("./web/static/"))))
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./web/")))
+
+	// SPA fallback - sirve index.html para todas las rutas que no son API o archivos estáticos
+	// Esto permite que el router del frontend (History API) maneje las rutas
+	spaHandler := middleware.SPAHandler("./web", "./web/index.html")
+	router.PathPrefix("/").Handler(spaHandler(http.FileServer(http.Dir("./web/"))))
 
 	// Server
 	srv := &http.Server{

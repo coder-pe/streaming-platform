@@ -60,15 +60,15 @@ export default class UserMenu extends Component {
         </button>
 
         <div class="user-menu-dropdown ${this.state.isOpen ? 'open' : ''}">
-          <a href="#profile" class="menu-item" data-action="profile">
+          <a href="/profile" class="menu-item" data-route="profile">
             <i class="icon-user"></i>
             Mi Perfil
           </a>
-          <a href="#videos" class="menu-item" data-action="my-videos">
+          <a href="/videos" class="menu-item" data-route="videos">
             <i class="icon-video"></i>
             Mis Videos
           </a>
-          <a href="#upload" class="menu-item" data-action="upload">
+          <a href="/upload" class="menu-item" data-route="upload">
             <i class="icon-upload"></i>
             Subir Video
           </a>

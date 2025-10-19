@@ -204,10 +204,25 @@ func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
-	userUUID, err := h.getUserIDFromContext(r)
-	if err != nil {
-		httputil.WriteUnauthorized(w, "")
-		return
+	// Intentar obtener ID desde la URL primero (para rutas públicas)
+	vars := mux.Vars(r)
+	var userUUID uuid.UUID
+	var err error
+
+	if idStr, ok := vars["id"]; ok {
+		// Si hay ID en la URL, usarlo (ruta pública: /api/users/{id}/stats)
+		userUUID, err = uuid.Parse(idStr)
+		if err != nil {
+			httputil.WriteValidationError(w, "Invalid user ID")
+			return
+		}
+	} else {
+		// Si no, obtener del contexto (ruta protegida: /api/user/stats)
+		userUUID, err = h.getUserIDFromContext(r)
+		if err != nil {
+			httputil.WriteUnauthorized(w, "")
+			return
+		}
 	}
 
 	stats, err := h.userService.GetUserStats(r.Context(), userUUID)
