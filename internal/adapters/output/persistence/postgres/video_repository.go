@@ -11,25 +11,26 @@ import (
 	"strings"
 	"time"
 
-	"streaming-platform/internal/domain/entities"
-	"streaming-platform/internal/domain/errors"
+	"streaming-platform/internal/core/domain"
+	"streaming-platform/internal/core/ports/output"
 	"streaming-platform/pkg/dbutil"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
-type VideoRepository struct {
+type videoRepository struct {
 	db *sql.DB
 }
 
-func NewVideoRepository(db *sql.DB) *VideoRepository {
-	return &VideoRepository{
+// NewVideoRepository crea una nueva instancia del repositorio de videos
+func NewVideoRepository(db *sql.DB) output.VideoRepository {
+	return &videoRepository{
 		db: db,
 	}
 }
 
-func (r *VideoRepository) Create(ctx context.Context, video *entities.Video) error {
+func (r *videoRepository) Create(ctx context.Context, video *domain.Video) error {
 	query := `
 		INSERT INTO videos (id, title, description, instructor_id, category, tags, duration, 
 		                   thumbnail, status, is_public, view_count, rating, created_at, updated_at)
@@ -70,7 +71,7 @@ func (r *VideoRepository) Create(ctx context.Context, video *entities.Video) err
 	return nil
 }
 
-func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.Video, error) {
+func (r *videoRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Video, error) {
 	query := `
 		SELECT v.id, v.title, v.description, v.instructor_id, v.category, v.tags, 
 		       v.duration, v.thumbnail, v.status, v.is_public, v.view_count, v.rating,
@@ -81,7 +82,7 @@ func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 		WHERE v.id = $1
 	`
 
-	video := &entities.Video{}
+	video := &domain.Video{}
 	var instructorID sql.NullString
 	var instructorEmail sql.NullString
 	var instructorFirstName sql.NullString
@@ -116,7 +117,7 @@ func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.VideoNotFound
+			return nil, domain.VideoNotFound
 		}
 		return nil, fmt.Errorf("failed to get video by ID: %w", err)
 	}
@@ -134,7 +135,7 @@ func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 		fmt.Printf("Warning: failed to get video files for video %s: %v\n", video.ID, err)
 	} else {
 		// Convert []*VideoFile to []VideoFile
-		videoFiles := make([]entities.VideoFile, len(videoFilesPtrs))
+		videoFiles := make([]domain.VideoFile, len(videoFilesPtrs))
 		for i, vf := range videoFilesPtrs {
 			videoFiles[i] = *vf
 		}
@@ -144,7 +145,7 @@ func (r *VideoRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.
 	return video, nil
 }
 
-func (r *VideoRepository) Update(ctx context.Context, video *entities.Video) error {
+func (r *videoRepository) Update(ctx context.Context, video *domain.Video) error {
 	query := `
 		UPDATE videos
 		SET title = $2, description = $3, category = $4, tags = $5, duration = $6,
@@ -173,10 +174,10 @@ func (r *VideoRepository) Update(ctx context.Context, video *entities.Video) err
 		return fmt.Errorf("failed to update video: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.VideoNotFound)
+	return dbutil.CheckRowsAffected(result, domain.VideoNotFound)
 }
 
-func (r *VideoRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *videoRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return dbutil.ExecuteInTransaction(r.db, func(tx *sql.Tx) error {
 		// Delete video files first
 		_, err := tx.ExecContext(ctx, "DELETE FROM video_files WHERE video_id = $1", id)
@@ -190,11 +191,11 @@ func (r *VideoRepository) Delete(ctx context.Context, id uuid.UUID) error {
 			return fmt.Errorf("failed to delete video: %w", err)
 		}
 
-		return dbutil.CheckRowsAffected(result, errors.VideoNotFound)
+		return dbutil.CheckRowsAffected(result, domain.VideoNotFound)
 	})
 }
 
-func (r *VideoRepository) List(ctx context.Context, filters map[string]interface{}, page, limit int) ([]*entities.Video, int64, error) {
+func (r *videoRepository) List(ctx context.Context, filters map[string]interface{}, page, limit int) ([]*domain.Video, int64, error) {
 	offset := (page - 1) * limit
 
 	// Build WHERE clause
@@ -257,7 +258,7 @@ func (r *VideoRepository) List(ctx context.Context, filters map[string]interface
 	}
 	defer rows.Close()
 
-	videos := []*entities.Video{}
+	videos := []*domain.Video{}
 	for rows.Next() {
 		video, err := r.scanVideoWithInstructor(rows)
 		if err != nil {
@@ -273,7 +274,7 @@ func (r *VideoRepository) List(ctx context.Context, filters map[string]interface
 	return videos, total, nil
 }
 
-func (r *VideoRepository) Search(ctx context.Context, searchReq entities.VideoSearchRequest) (*entities.VideoSearchResponse, error) {
+func (r *videoRepository) Search(ctx context.Context, searchReq domain.VideoSearchRequest) (*domain.VideoSearchResponse, error) {
 	offset := (searchReq.Page - 1) * searchReq.Limit
 
 	// Build search query
@@ -334,7 +335,7 @@ func (r *VideoRepository) Search(ctx context.Context, searchReq entities.VideoSe
 	}
 	defer rows.Close()
 
-	videos := []entities.Video{}
+	videos := []domain.Video{}
 	for rows.Next() {
 		video, err := r.scanVideoWithInstructor(rows)
 		if err != nil {
@@ -347,7 +348,7 @@ func (r *VideoRepository) Search(ctx context.Context, searchReq entities.VideoSe
 		return nil, fmt.Errorf("failed to iterate videos: %w", err)
 	}
 
-	return &entities.VideoSearchResponse{
+	return &domain.VideoSearchResponse{
 		Videos: videos,
 		Total:  total,
 		Page:   searchReq.Page,
@@ -355,7 +356,7 @@ func (r *VideoRepository) Search(ctx context.Context, searchReq entities.VideoSe
 	}, nil
 }
 
-func (r *VideoRepository) GetByCategory(ctx context.Context, category string, page, limit int) ([]*entities.Video, int64, error) {
+func (r *videoRepository) GetByCategory(ctx context.Context, category string, page, limit int) ([]*domain.Video, int64, error) {
 	filters := map[string]interface{}{
 		"category":  category,
 		"is_public": true,
@@ -363,22 +364,22 @@ func (r *VideoRepository) GetByCategory(ctx context.Context, category string, pa
 	return r.List(ctx, filters, page, limit)
 }
 
-func (r *VideoRepository) GetByInstructor(ctx context.Context, instructorID uuid.UUID, page, limit int) ([]*entities.Video, int64, error) {
+func (r *videoRepository) GetByInstructor(ctx context.Context, instructorID uuid.UUID, page, limit int) ([]*domain.Video, int64, error) {
 	filters := map[string]interface{}{
 		"instructor_id": instructorID,
 	}
 	return r.List(ctx, filters, page, limit)
 }
 
-func (r *VideoRepository) GetPublicVideos(ctx context.Context, page, limit int) ([]*entities.Video, int64, error) {
+func (r *videoRepository) GetPublicVideos(ctx context.Context, page, limit int) ([]*domain.Video, int64, error) {
 	filters := map[string]interface{}{
 		"is_public": true,
-		"status":    entities.VideoStatusReady,
+		"status":    domain.VideoStatusReady,
 	}
 	return r.List(ctx, filters, page, limit)
 }
 
-func (r *VideoRepository) GetFeaturedVideos(ctx context.Context, limit int) ([]*entities.Video, error) {
+func (r *videoRepository) GetFeaturedVideos(ctx context.Context, limit int) ([]*domain.Video, error) {
 	query := `
 		SELECT v.id, v.title, v.description, v.instructor_id, v.category, v.tags, 
 		       v.duration, v.thumbnail, v.status, v.is_public, v.view_count, v.rating,
@@ -391,13 +392,13 @@ func (r *VideoRepository) GetFeaturedVideos(ctx context.Context, limit int) ([]*
 		LIMIT $2
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, entities.VideoStatusReady, limit)
+	rows, err := r.db.QueryContext(ctx, query, domain.VideoStatusReady, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get featured videos: %w", err)
 	}
 	defer rows.Close()
 
-	videos := []*entities.Video{}
+	videos := []*domain.Video{}
 	for rows.Next() {
 		video, err := r.scanVideoWithInstructor(rows)
 		if err != nil {
@@ -413,7 +414,7 @@ func (r *VideoRepository) GetFeaturedVideos(ctx context.Context, limit int) ([]*
 	return videos, nil
 }
 
-func (r *VideoRepository) GetPopularVideos(ctx context.Context, limit int) ([]*entities.Video, error) {
+func (r *videoRepository) GetPopularVideos(ctx context.Context, limit int) ([]*domain.Video, error) {
 	query := `
 		SELECT v.id, v.title, v.description, v.instructor_id, v.category, v.tags, 
 		       v.duration, v.thumbnail, v.status, v.is_public, v.view_count, v.rating,
@@ -426,13 +427,13 @@ func (r *VideoRepository) GetPopularVideos(ctx context.Context, limit int) ([]*e
 		LIMIT $2
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, entities.VideoStatusReady, limit)
+	rows, err := r.db.QueryContext(ctx, query, domain.VideoStatusReady, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get popular videos: %w", err)
 	}
 	defer rows.Close()
 
-	videos := []*entities.Video{}
+	videos := []*domain.Video{}
 	for rows.Next() {
 		video, err := r.scanVideoWithInstructor(rows)
 		if err != nil {
@@ -449,7 +450,7 @@ func (r *VideoRepository) GetPopularVideos(ctx context.Context, limit int) ([]*e
 }
 
 // Video Files methods
-func (r *VideoRepository) CreateVideoFile(ctx context.Context, videoFile *entities.VideoFile) error {
+func (r *videoRepository) CreateVideoFile(ctx context.Context, videoFile *domain.VideoFile) error {
 	query := `
 		INSERT INTO video_files (id, video_id, quality, file_path, file_size, bitrate, format)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -474,7 +475,7 @@ func (r *VideoRepository) CreateVideoFile(ctx context.Context, videoFile *entiti
 	return nil
 }
 
-func (r *VideoRepository) GetVideoFiles(ctx context.Context, videoID uuid.UUID) ([]*entities.VideoFile, error) {
+func (r *videoRepository) GetVideoFiles(ctx context.Context, videoID uuid.UUID) ([]*domain.VideoFile, error) {
 	query := `
 		SELECT id, video_id, quality, file_path, file_size, bitrate, format
 		FROM video_files
@@ -495,9 +496,9 @@ func (r *VideoRepository) GetVideoFiles(ctx context.Context, videoID uuid.UUID) 
 	}
 	defer rows.Close()
 
-	videoFiles := []*entities.VideoFile{}
+	videoFiles := []*domain.VideoFile{}
 	for rows.Next() {
-		videoFile := &entities.VideoFile{}
+		videoFile := &domain.VideoFile{}
 		err := rows.Scan(
 			&videoFile.ID,
 			&videoFile.VideoID,
@@ -520,7 +521,7 @@ func (r *VideoRepository) GetVideoFiles(ctx context.Context, videoID uuid.UUID) 
 	return videoFiles, nil
 }
 
-func (r *VideoRepository) UpdateVideoFile(ctx context.Context, videoFile *entities.VideoFile) error {
+func (r *videoRepository) UpdateVideoFile(ctx context.Context, videoFile *domain.VideoFile) error {
 	query := `
 		UPDATE video_files
 		SET quality = $2, file_path = $3, file_size = $4, bitrate = $5, format = $6
@@ -540,10 +541,10 @@ func (r *VideoRepository) UpdateVideoFile(ctx context.Context, videoFile *entiti
 		return fmt.Errorf("failed to update video file: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.ErrRecordNotFound)
+	return dbutil.CheckRowsAffected(result, domain.ErrRecordNotFound)
 }
 
-func (r *VideoRepository) DeleteVideoFile(ctx context.Context, id uuid.UUID) error {
+func (r *videoRepository) DeleteVideoFile(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM video_files WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
@@ -551,11 +552,11 @@ func (r *VideoRepository) DeleteVideoFile(ctx context.Context, id uuid.UUID) err
 		return fmt.Errorf("failed to delete video file: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.ErrRecordNotFound)
+	return dbutil.CheckRowsAffected(result, domain.ErrRecordNotFound)
 }
 
 // Statistics methods
-func (r *VideoRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
+func (r *videoRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) error {
 	query := `UPDATE videos SET view_count = view_count + 1, updated_at = $1 WHERE id = $2`
 
 	_, err := r.db.ExecContext(ctx, query, time.Now(), id)
@@ -566,7 +567,7 @@ func (r *VideoRepository) IncrementViewCount(ctx context.Context, id uuid.UUID) 
 	return nil
 }
 
-func (r *VideoRepository) UpdateRating(ctx context.Context, id uuid.UUID, rating float64) error {
+func (r *videoRepository) UpdateRating(ctx context.Context, id uuid.UUID, rating float64) error {
 	query := `UPDATE videos SET rating = $1, updated_at = $2 WHERE id = $3`
 
 	_, err := r.db.ExecContext(ctx, query, rating, time.Now(), id)
@@ -577,9 +578,9 @@ func (r *VideoRepository) UpdateRating(ctx context.Context, id uuid.UUID, rating
 	return nil
 }
 
-func (r *VideoRepository) GetVideoStats(ctx context.Context, id uuid.UUID) (*entities.VideoStats, error) {
+func (r *videoRepository) GetVideoStats(ctx context.Context, id uuid.UUID) (*domain.VideoStats, error) {
 	// This would be implemented with a proper stats table
-	stats := &entities.VideoStats{
+	stats := &domain.VideoStats{
 		VideoID:   id,
 		Views:     0,
 		Likes:     0,
@@ -591,7 +592,7 @@ func (r *VideoRepository) GetVideoStats(ctx context.Context, id uuid.UUID) (*ent
 	return stats, nil
 }
 
-func (r *VideoRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status entities.VideoStatus) error {
+func (r *videoRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status domain.VideoStatus) error {
 	query := `UPDATE videos SET status = $1, updated_at = $2 WHERE id = $3`
 
 	result, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
@@ -599,10 +600,10 @@ func (r *VideoRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status
 		return fmt.Errorf("failed to update video status: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.VideoNotFound)
+	return dbutil.CheckRowsAffected(result, domain.VideoNotFound)
 }
 
-func (r *VideoRepository) GetVideosByStatus(ctx context.Context, status entities.VideoStatus) ([]*entities.Video, error) {
+func (r *videoRepository) GetVideosByStatus(ctx context.Context, status domain.VideoStatus) ([]*domain.Video, error) {
 	query := `
 		SELECT v.id, v.title, v.description, v.instructor_id, v.category, v.tags, 
 		       v.duration, v.thumbnail, v.status, v.is_public, v.view_count, v.rating,
@@ -620,7 +621,7 @@ func (r *VideoRepository) GetVideosByStatus(ctx context.Context, status entities
 	}
 	defer rows.Close()
 
-	videos := []*entities.Video{}
+	videos := []*domain.Video{}
 	for rows.Next() {
 		video, err := r.scanVideoWithInstructor(rows)
 		if err != nil {
@@ -637,8 +638,8 @@ func (r *VideoRepository) GetVideosByStatus(ctx context.Context, status entities
 }
 
 // Helper method to scan video with instructor
-func (r *VideoRepository) scanVideoWithInstructor(rows *sql.Rows) (*entities.Video, error) {
-	video := &entities.Video{}
+func (r *videoRepository) scanVideoWithInstructor(rows *sql.Rows) (*domain.Video, error) {
+	video := &domain.Video{}
 	var instructorID sql.NullString
 	var instructorEmail sql.NullString
 	var instructorFirstName sql.NullString
@@ -689,12 +690,12 @@ func scanInstructorProfile(
 	instructorID, instructorEmail, instructorFirstName,
 	instructorLastName, instructorRole, instructorAvatar sql.NullString,
 	instructorCreatedAt sql.NullTime,
-) *entities.UserProfile {
+) *domain.UserProfile {
 	if !instructorID.Valid {
 		return nil
 	}
 
-	instructor := &entities.UserProfile{
+	instructor := &domain.UserProfile{
 		ID:        uuid.MustParse(instructorID.String),
 		Email:     dbutil.ScanNullString(instructorEmail),
 		FirstName: dbutil.ScanNullString(instructorFirstName),

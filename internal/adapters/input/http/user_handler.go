@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"streaming-platform/internal/usecase/user"
+	"streaming-platform/internal/core/ports/input"
 	"streaming-platform/pkg/httputil"
 	"streaming-platform/pkg/logger"
 	"streaming-platform/pkg/validator"
@@ -23,13 +23,13 @@ import (
 )
 
 type UserHandler struct {
-	userUsecase user.UserUsecase
+	userService input.UserService
 	logger      logger.Logger
 }
 
-func NewUserHandler(userUsecase user.UserUsecase, logger logger.Logger) *UserHandler {
+func NewUserHandler(userService input.UserService, logger logger.Logger) *UserHandler {
 	return &UserHandler{
-		userUsecase: userUsecase,
+		userService: userService,
 		logger:      logger,
 	}
 }
@@ -54,7 +54,7 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userUsecase.GetUserByID(r.Context(), userUUID)
+	user, err := h.userService.GetUserByID(r.Context(), userUUID)
 	if err != nil {
 		h.logger.Error("Error getting user profile: %v", err)
 		httputil.WriteNotFound(w, "User not found")
@@ -97,7 +97,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	req.Bio = validator.NormalizeString(req.Bio)
 
 	// Get current user
-	currentUser, err := h.userUsecase.GetUserByID(r.Context(), userUUID)
+	currentUser, err := h.userService.GetUserByID(r.Context(), userUUID)
 	if err != nil {
 		h.logger.Error("Error getting current user: %v", err)
 		httputil.WriteNotFound(w, "User not found")
@@ -111,7 +111,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		"bio":        req.Bio,
 	}
 
-	updatedUser, err := h.userUsecase.UpdateUser(r.Context(), userUUID, updateData)
+	updatedUser, err := h.userService.UpdateUser(r.Context(), userUUID, updateData)
 	if err != nil {
 		h.logger.Error("Error updating user profile: %v", err)
 		httputil.WriteInternalError(w, "Failed to update profile")
@@ -187,7 +187,7 @@ func (h *UserHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		"avatar": avatarURL,
 	}
 
-	updatedUser, err := h.userUsecase.UpdateUser(r.Context(), userUUID, updateData)
+	updatedUser, err := h.userService.UpdateUser(r.Context(), userUUID, updateData)
 	if err != nil {
 		h.logger.Error("Error updating user avatar: %v", err)
 		httputil.WriteInternalError(w, "Failed to update avatar")
@@ -210,7 +210,7 @@ func (h *UserHandler) GetUserStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, err := h.userUsecase.GetUserStats(r.Context(), userUUID)
+	stats, err := h.userService.GetUserStats(r.Context(), userUUID)
 	if err != nil {
 		h.logger.Error("Error getting user stats: %v", err)
 		httputil.WriteInternalError(w, "Failed to get user stats")
@@ -228,7 +228,7 @@ func (h *UserHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile, err := h.userUsecase.GetPublicProfile(r.Context(), userID)
+	profile, err := h.userService.GetPublicProfile(r.Context(), userID)
 	if err != nil {
 		h.logger.Error("Error getting public profile: %v", err)
 		httputil.WriteNotFound(w, "User not found")
@@ -248,7 +248,7 @@ func (h *UserHandler) GetWatchHistory(w http.ResponseWriter, r *http.Request) {
 	// Parse pagination parameters
 	page, limit := h.getPaginationParams(r)
 
-	history, totalCount, err := h.userUsecase.GetWatchHistory(r.Context(), userUUID, page, limit)
+	history, totalCount, err := h.userService.GetWatchHistory(r.Context(), userUUID, page, limit)
 	if err != nil {
 		h.logger.Error("Error getting watch history: %v", err)
 		httputil.WriteInternalError(w, "Failed to get watch history")
@@ -275,7 +275,7 @@ func (h *UserHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	// Parse pagination parameters
 	page, limit := h.getPaginationParams(r)
 
-	favorites, totalCount, err := h.userUsecase.GetFavorites(r.Context(), userUUID, page, limit)
+	favorites, totalCount, err := h.userService.GetFavorites(r.Context(), userUUID, page, limit)
 	if err != nil {
 		h.logger.Error("Error getting favorites: %v", err)
 		httputil.WriteInternalError(w, "Failed to get favorites")
@@ -306,7 +306,7 @@ func (h *UserHandler) AddToFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.userUsecase.AddToFavorites(r.Context(), userUUID, videoID)
+	err = h.userService.AddToFavorites(r.Context(), userUUID, videoID)
 	if err != nil {
 		h.logger.Error("Error adding to favorites: %v", err)
 		h.handleFavoritesError(w, err)
@@ -331,7 +331,7 @@ func (h *UserHandler) RemoveFromFavorites(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = h.userUsecase.RemoveFromFavorites(r.Context(), userUUID, videoID)
+	err = h.userService.RemoveFromFavorites(r.Context(), userUUID, videoID)
 	if err != nil {
 		h.logger.Error("Error removing from favorites: %v", err)
 		httputil.WriteInternalError(w, "Failed to remove from favorites")
@@ -355,7 +355,7 @@ func (h *UserHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.userUsecase.UpdateSettings(r.Context(), userUUID, settings)
+	err = h.userService.UpdateSettings(r.Context(), userUUID, settings)
 	if err != nil {
 		h.logger.Error("Error updating user settings: %v", err)
 		httputil.WriteInternalError(w, "Failed to update settings")
@@ -373,7 +373,7 @@ func (h *UserHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	settings, err := h.userUsecase.GetSettings(r.Context(), userUUID)
+	settings, err := h.userService.GetSettings(r.Context(), userUUID)
 	if err != nil {
 		h.logger.Error("Error getting user settings: %v", err)
 		httputil.WriteInternalError(w, "Failed to get settings")
@@ -405,7 +405,7 @@ func (h *UserHandler) DeactivateAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = h.userUsecase.DeactivateAccount(r.Context(), userUUID, req.Password, req.Reason)
+	err = h.userService.DeactivateAccount(r.Context(), userUUID, req.Password, req.Reason)
 	if err != nil {
 		h.logger.Error("Error deactivating account: %v", err)
 

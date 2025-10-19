@@ -7,8 +7,8 @@ package handlers
 import (
 	"net/http"
 
-	"streaming-platform/internal/domain/entities"
-	"streaming-platform/internal/usecase/auth"
+	"streaming-platform/internal/core/domain"
+	"streaming-platform/internal/core/ports/input"
 	"streaming-platform/pkg/httputil"
 	"streaming-platform/pkg/logger"
 	"streaming-platform/pkg/validator"
@@ -17,13 +17,13 @@ import (
 )
 
 type AuthHandler struct {
-	authUsecase auth.AuthUsecase
+	authService input.AuthService
 	logger      logger.Logger
 }
 
-func NewAuthHandler(authUsecase auth.AuthUsecase, logger logger.Logger) *AuthHandler {
+func NewAuthHandler(authService input.AuthService, logger logger.Logger) *AuthHandler {
 	return &AuthHandler{
-		authUsecase: authUsecase,
+		authService: authService,
 		logger:      logger,
 	}
 }
@@ -42,7 +42,7 @@ type RegisterRequest struct {
 
 type AuthResponse struct {
 	Token string               `json:"token"`
-	User  entities.UserProfile `json:"user"`
+	User  domain.UserProfile `json:"user"`
 }
 
 type RefreshRequest struct {
@@ -75,7 +75,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	req.Email = validator.NormalizeEmail(req.Email)
 
 	// Autenticar usuario
-	token, refreshToken, user, err := h.authUsecase.Login(r.Context(), req.Email, req.Password)
+	token, refreshToken, user, err := h.authService.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		h.logger.Error("Login failed for email %s: %v", req.Email, err)
 		h.handleAuthError(w, err)
@@ -110,7 +110,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	req.LastName = validator.NormalizeString(req.LastName)
 
 	// Registrar usuario
-	token, refreshToken, userProfile, err := h.authUsecase.Register(
+	token, refreshToken, userProfile, err := h.authService.Register(
 		r.Context(),
 		req.Email,
 		req.Password,
@@ -146,7 +146,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Refrescar el token
-	newToken, newRefreshToken, user, err := h.authUsecase.RefreshToken(r.Context(), refreshToken)
+	newToken, newRefreshToken, user, err := h.authService.RefreshToken(r.Context(), refreshToken)
 	if err != nil {
 		h.logger.Error("Token refresh failed: %v", err)
 
@@ -172,7 +172,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	refreshToken, err := httputil.GetRefreshTokenFromCookie(r)
 	if err == nil && refreshToken != "" && userID != nil {
 		// Invalidar refresh token
-		if err := h.authUsecase.Logout(r.Context(), userID.(uuid.UUID), refreshToken); err != nil {
+		if err := h.authService.Logout(r.Context(), userID.(uuid.UUID), refreshToken); err != nil {
 			h.logger.Error("Logout error: %v", err)
 		}
 	}
@@ -202,7 +202,7 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	req.Email = validator.NormalizeEmail(req.Email)
 
-	err := h.authUsecase.ForgotPassword(r.Context(), req.Email)
+	err := h.authService.ForgotPassword(r.Context(), req.Email)
 	if err != nil {
 		h.logger.Error("Forgot password failed for email %s: %v", req.Email, err)
 		// Don't reveal if email exists or not for security
@@ -234,7 +234,7 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.authUsecase.ResetPassword(r.Context(), req.Token, req.NewPassword)
+	err := h.authService.ResetPassword(r.Context(), req.Token, req.NewPassword)
 	if err != nil {
 		h.logger.Error("Password reset failed: %v", err)
 		h.handleAuthError(w, err)
@@ -272,7 +272,7 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.authUsecase.ChangePassword(r.Context(), userID.(uuid.UUID), req.CurrentPassword, req.NewPassword)
+	err := h.authService.ChangePassword(r.Context(), userID.(uuid.UUID), req.CurrentPassword, req.NewPassword)
 	if err != nil {
 		h.logger.Error("Password change failed for user %s: %v", userID, err)
 		h.handleAuthError(w, err)
@@ -301,7 +301,7 @@ func (h *AuthHandler) validateRegisterRequest(req *RegisterRequest) error {
 	return nil
 }
 
-func (h *AuthHandler) respondWithAuth(w http.ResponseWriter, status int, token string, user *entities.UserProfile) {
+func (h *AuthHandler) respondWithAuth(w http.ResponseWriter, status int, token string, user *domain.UserProfile) {
 	response := AuthResponse{
 		Token: token,
 		User:  *user,

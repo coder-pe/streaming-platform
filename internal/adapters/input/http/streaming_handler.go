@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"streaming-platform/internal/usecase/streaming"
+	"streaming-platform/internal/core/ports/input"
 	"streaming-platform/pkg/httputil"
 	"streaming-platform/pkg/logger"
 
@@ -22,13 +22,13 @@ import (
 )
 
 type StreamingHandler struct {
-	streamingUsecase streaming.StreamingUsecase
+	streamingService input.StreamingService
 	logger           logger.Logger
 }
 
-func NewStreamingHandler(streamingUsecase streaming.StreamingUsecase, logger logger.Logger) *StreamingHandler {
+func NewStreamingHandler(streamingService input.StreamingService, logger logger.Logger) *StreamingHandler {
 	return &StreamingHandler{
-		streamingUsecase: streamingUsecase,
+		streamingService: streamingService,
 		logger:           logger,
 	}
 }
@@ -48,7 +48,7 @@ func (h *StreamingHandler) GetMasterPlaylist(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Obtener playlist HLS
-	playlist, err := h.streamingUsecase.GetHLSPlaylist(r.Context(), videoID)
+	playlist, err := h.streamingService.GetHLSPlaylist(r.Context(), videoID)
 	if err != nil {
 		h.logger.Error("Error getting HLS playlist: %v", err)
 		httputil.WriteNotFound(w, "Playlist not found")
@@ -59,7 +59,7 @@ func (h *StreamingHandler) GetMasterPlaylist(w http.ResponseWriter, r *http.Requ
 	h.writePlaylist(w, playlist.MasterPlaylist)
 
 	// Registrar sesión de streaming
-	go h.streamingUsecase.RecordStreamingSession(r.Context(), userID, videoID, "auto")
+	go h.streamingService.RecordStreamingSession(r.Context(), userID, videoID, "auto")
 }
 
 func (h *StreamingHandler) GetPlaylist(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func (h *StreamingHandler) GetPlaylist(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Devolver variant playlist específico
-	variantPlaylist, err := h.streamingUsecase.GetVariantPlaylist(r.Context(), videoID, quality)
+	variantPlaylist, err := h.streamingService.GetVariantPlaylist(r.Context(), videoID, quality)
 	if err != nil {
 		h.logger.Error("Error getting variant playlist: %v", err)
 		httputil.WriteNotFound(w, "Variant playlist not found")
@@ -92,7 +92,7 @@ func (h *StreamingHandler) GetPlaylist(w http.ResponseWriter, r *http.Request) {
 	h.writePlaylist(w, variantPlaylist)
 
 	// Registrar sesión de streaming
-	go h.streamingUsecase.RecordStreamingSession(r.Context(), userID, videoID, quality)
+	go h.streamingService.RecordStreamingSession(r.Context(), userID, videoID, quality)
 }
 
 func (h *StreamingHandler) GetSegment(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +152,7 @@ func (h *StreamingHandler) GetSegment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Actualizar estadísticas de streaming
-	go h.streamingUsecase.UpdateStreamingStats(r.Context(), userID, videoID, segment)
+	go h.streamingService.UpdateStreamingStats(r.Context(), userID, videoID, segment)
 }
 
 func (h *StreamingHandler) GetStreamingInfo(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +165,7 @@ func (h *StreamingHandler) GetStreamingInfo(w http.ResponseWriter, r *http.Reque
 
 	userID := h.getUserIDFromContext(r)
 
-	streamingInfo, err := h.streamingUsecase.GetStreamingInfo(r.Context(), userID, videoID)
+	streamingInfo, err := h.streamingService.GetStreamingInfo(r.Context(), userID, videoID)
 	if err != nil {
 		h.logger.Error("Error getting streaming info: %v", err)
 		httputil.WriteInternalError(w, "Error getting streaming info")
@@ -195,7 +195,7 @@ func (h *StreamingHandler) UpdateWatchProgress(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = h.streamingUsecase.UpdateWatchProgress(r.Context(), userID, videoID, progressData.Position, progressData.Quality)
+	err = h.streamingService.UpdateWatchProgress(r.Context(), userID, videoID, progressData.Position, progressData.Quality)
 	if err != nil {
 		h.logger.Error("Error updating watch progress: %v", err)
 		httputil.WriteInternalError(w, "Error updating progress")
@@ -208,7 +208,7 @@ func (h *StreamingHandler) UpdateWatchProgress(w http.ResponseWriter, r *http.Re
 // Helper methods
 
 func (h *StreamingHandler) checkVideoAccess(w http.ResponseWriter, r *http.Request, userID, videoID uuid.UUID) bool {
-	hasAccess, err := h.streamingUsecase.CheckVideoAccess(r.Context(), userID, videoID)
+	hasAccess, err := h.streamingService.CheckVideoAccess(r.Context(), userID, videoID)
 	if err != nil {
 		h.logger.Error("Error checking video access: %v", err)
 		httputil.WriteInternalError(w, "Error checking access")

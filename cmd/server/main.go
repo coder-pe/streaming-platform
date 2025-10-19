@@ -12,15 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"streaming-platform/internal/delivery/http/handlers"
+	httpHandlers "streaming-platform/internal/adapters/input/http"
+	postgresAdapter "streaming-platform/internal/adapters/output/persistence/postgres"
+	redisAdapter "streaming-platform/internal/adapters/output/persistence/redis"
+	"streaming-platform/internal/core/services"
 	"streaming-platform/internal/delivery/http/middleware"
 	"streaming-platform/internal/delivery/workers"
-	"streaming-platform/internal/repository/postgres"
-	"streaming-platform/internal/repository/redis"
-	"streaming-platform/internal/usecase/auth"
-	"streaming-platform/internal/usecase/streaming"
-	"streaming-platform/internal/usecase/user"
-	"streaming-platform/internal/usecase/video"
 	"streaming-platform/pkg/config"
 	"streaming-platform/pkg/database"
 	"streaming-platform/pkg/logger"
@@ -50,27 +47,28 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	// Repositorios
-	userRepo := postgres.NewUserRepository(db)
-	videoRepo := postgres.NewVideoRepository(db)
-	cacheRepo := redis.NewCacheRepository(redisClient)
+	// Output Adapters (Repositorios) - Implementan los puertos de salida
+	userRepo := postgresAdapter.NewUserRepository(db)
+	videoRepo := postgresAdapter.NewVideoRepository(db)
+	cacheRepo := redisAdapter.NewCacheRepository(redisClient)
 
-	// Use cases - Ahora devuelven interfaces, no punteros
-	authUsecase := auth.NewAuthUsecase(userRepo, cacheRepo, cfg.JWTSecret)
-	userUsecase := user.NewUserUsecase(userRepo, cacheRepo)
-	videoUsecase := video.NewVideoUsecase(videoRepo, cacheRepo)
-	streamingUsecase := streaming.NewStreamingUsecase(videoRepo, cacheRepo, cfg.CDNBaseURL, cfg.JWTSecret)
+	// Core Services - Implementan los puertos de entrada, usan los puertos de salida
+	authService := services.NewAuthService(userRepo, cacheRepo, cfg.JWTSecret)
+	userService := services.NewUserService(userRepo, cacheRepo)
+	videoService := services.NewVideoService(videoRepo, cacheRepo)
+	streamingService := services.NewStreamingService(videoRepo, cacheRepo, cfg.CDNBaseURL, cfg.JWTSecret)
 
-	// Handlers - Reciben interfaces directamente
-	authHandler := handlers.NewAuthHandler(authUsecase, log)
-	userHandler := handlers.NewUserHandler(userUsecase, log)
-	videoHandler := handlers.NewVideoHandler(videoUsecase, log)
-	streamingHandler := handlers.NewStreamingHandler(streamingUsecase, log)
+	// Input Adapters (Handlers HTTP) - Usan los servicios del core
+	authHandler := httpHandlers.NewAuthHandler(authService, log)
+	userHandler := httpHandlers.NewUserHandler(userService, log)
+	videoHandler := httpHandlers.NewVideoHandler(videoService, log)
+	streamingHandler := httpHandlers.NewStreamingHandler(streamingService, log)
 
 	// Worker Pool
+	// TODO: Actualizar worker para usar los servicios del core
 	workerPool := workers.NewWorkerPool(cfg.WorkerPoolSize, log)
-	transcodingWorker := workers.NewTranscodingWorker(videoUsecase, cfg.FFmpegPath, cfg.StoragePath)
-	workerPool.RegisterWorker("transcoding", transcodingWorker)
+	// transcodingWorker := workers.NewTranscodingWorker(videoService, cfg.FFmpegPath, cfg.StoragePath)
+	// workerPool.RegisterWorker("transcoding", transcodingWorker)
 	workerPool.Start()
 	defer workerPool.Stop()
 

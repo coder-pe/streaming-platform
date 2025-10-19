@@ -14,21 +14,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"streaming-platform/internal/domain/entities"
-	"streaming-platform/internal/usecase/video"
+	"streaming-platform/internal/core/domain"
+	"streaming-platform/internal/core/ports/input"
 	"streaming-platform/pkg/httputil"
 	"streaming-platform/pkg/logger"
 	"streaming-platform/pkg/validator"
 )
 
 type VideoHandler struct {
-	videoUsecase video.VideoUsecase
+	videoService input.VideoService
 	logger       logger.Logger
 }
 
-func NewVideoHandler(videoUsecase video.VideoUsecase, logger logger.Logger) *VideoHandler {
+func NewVideoHandler(videoService input.VideoService, logger logger.Logger) *VideoHandler {
 	return &VideoHandler{
-		videoUsecase: videoUsecase,
+		videoService: videoService,
 		logger:       logger,
 	}
 }
@@ -44,7 +44,7 @@ func (h *VideoHandler) GetPublicVideos(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 
-	searchReq := entities.VideoSearchRequest{
+	searchReq := domain.VideoSearchRequest{
 		Query:    r.URL.Query().Get("query"),
 		Category: r.URL.Query().Get("category"),
 		Page:     page,
@@ -55,7 +55,7 @@ func (h *VideoHandler) GetPublicVideos(w http.ResponseWriter, r *http.Request) {
 		searchReq.Tags = strings.Split(tags, ",")
 	}
 
-	videos, err := h.videoUsecase.SearchPublicVideos(r.Context(), searchReq)
+	videos, err := h.videoService.SearchPublicVideos(r.Context(), searchReq)
 	if err != nil {
 		h.logger.Error("Error searching videos: %v", err)
 		httputil.WriteInternalError(w, "Error searching videos")
@@ -73,7 +73,7 @@ func (h *VideoHandler) GetVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	video, err := h.videoUsecase.GetVideoByID(r.Context(), videoID)
+	video, err := h.videoService.GetVideoByID(r.Context(), videoID)
 	if err != nil {
 		h.logger.Error("Error getting video: %v", err)
 		httputil.WriteNotFound(w, "Video not found")
@@ -81,7 +81,7 @@ func (h *VideoHandler) GetVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Incrementar contador de visualizaciones
-	go h.videoUsecase.IncrementViewCount(r.Context(), videoID)
+	go h.videoService.IncrementViewCount(r.Context(), videoID)
 
 	httputil.WriteJSON(w, http.StatusOK, video)
 }
@@ -98,7 +98,7 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Obtener metadatos del video
-	var uploadReq entities.VideoUploadRequest
+	var uploadReq domain.VideoUploadRequest
 	metadataJSON := r.FormValue("metadata")
 	if metadataJSON == "" {
 		httputil.WriteValidationError(w, "Metadata is required")
@@ -136,18 +136,18 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Crear registro de video en BD
-	video := &entities.Video{
+	video := &domain.Video{
 		ID:           uuid.New(),
 		Title:        uploadReq.Title,
 		Description:  uploadReq.Description,
 		InstructorID: userID,
 		Category:     uploadReq.Category,
 		Tags:         uploadReq.Tags,
-		Status:       entities.VideoStatusUploading,
+		Status:       domain.VideoStatusUploading,
 		IsPublic:     uploadReq.IsPublic,
 	}
 
-	if err := h.videoUsecase.CreateVideo(r.Context(), video); err != nil {
+	if err := h.videoService.CreateVideo(r.Context(), video); err != nil {
 		h.logger.Error("Error creating video: %v", err)
 		httputil.WriteInternalError(w, "Error creating video")
 		return
@@ -181,15 +181,15 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		"file_path": tempFilePath,
 	}
 
-	if err := h.videoUsecase.QueueTranscodingJob(r.Context(), job); err != nil {
+	if err := h.videoService.QueueTranscodingJob(r.Context(), job); err != nil {
 		h.logger.Error("Error queuing transcoding job: %v", err)
 		httputil.WriteInternalError(w, "Error processing video")
 		return
 	}
 
 	// Actualizar estado
-	video.Status = entities.VideoStatusProcessing
-	h.videoUsecase.UpdateVideo(r.Context(), video)
+	video.Status = domain.VideoStatusProcessing
+	h.videoService.UpdateVideo(r.Context(), video)
 
 	httputil.WriteJSON(w, http.StatusCreated, map[string]interface{}{
 		"message":  "Video uploaded successfully",
@@ -209,7 +209,7 @@ func (h *VideoHandler) UpdateVideo(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(uuid.UUID)
 
 	// Obtener video existente
-	video, err := h.videoUsecase.GetVideoByID(r.Context(), videoID)
+	video, err := h.videoService.GetVideoByID(r.Context(), videoID)
 	if err != nil {
 		httputil.WriteNotFound(w, "Video not found")
 		return
@@ -222,7 +222,7 @@ func (h *VideoHandler) UpdateVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse request body
-	var updateReq entities.VideoUploadRequest
+	var updateReq domain.VideoUploadRequest
 	if err := httputil.DecodeJSON(r, &updateReq); err != nil {
 		httputil.WriteValidationError(w, "Invalid request body")
 		return
@@ -235,7 +235,7 @@ func (h *VideoHandler) UpdateVideo(w http.ResponseWriter, r *http.Request) {
 	video.Tags = updateReq.Tags
 	video.IsPublic = updateReq.IsPublic
 
-	if err := h.videoUsecase.UpdateVideo(r.Context(), video); err != nil {
+	if err := h.videoService.UpdateVideo(r.Context(), video); err != nil {
 		h.logger.Error("Error updating video: %v", err)
 		httputil.WriteInternalError(w, "Error updating video")
 		return
@@ -255,7 +255,7 @@ func (h *VideoHandler) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(uuid.UUID)
 
 	// Verificar permisos
-	video, err := h.videoUsecase.GetVideoByID(r.Context(), videoID)
+	video, err := h.videoService.GetVideoByID(r.Context(), videoID)
 	if err != nil {
 		httputil.WriteNotFound(w, "Video not found")
 		return
@@ -266,7 +266,7 @@ func (h *VideoHandler) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.videoUsecase.DeleteVideo(r.Context(), videoID); err != nil {
+	if err := h.videoService.DeleteVideo(r.Context(), videoID); err != nil {
 		h.logger.Error("Error deleting video: %v", err)
 		httputil.WriteInternalError(w, "Error deleting video")
 		return

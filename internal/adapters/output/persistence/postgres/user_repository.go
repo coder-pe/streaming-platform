@@ -11,25 +11,26 @@ import (
 	"strings"
 	"time"
 
-	"streaming-platform/internal/domain/entities"
-	"streaming-platform/internal/domain/errors"
+	"streaming-platform/internal/core/domain"
+	"streaming-platform/internal/core/ports/output"
 	"streaming-platform/pkg/dbutil"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
-type UserRepository struct {
+type userRepository struct {
 	db *sql.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{
+// NewUserRepository crea una nueva instancia del repositorio de usuarios
+func NewUserRepository(db *sql.DB) output.UserRepository {
+	return &userRepository{
 		db: db,
 	}
 }
 
-func (r *UserRepository) Create(ctx context.Context, user *entities.User) error {
+func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 	query := `
 		INSERT INTO users (id, email, password_hash, first_name, last_name, role, avatar, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -55,7 +56,7 @@ func (r *UserRepository) Create(ctx context.Context, user *entities.User) error 
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok {
 			if pqErr.Code == "23505" { // unique_violation
-				return errors.UserAlreadyExists
+				return domain.UserAlreadyExists
 			}
 		}
 		return fmt.Errorf("failed to create user: %w", err)
@@ -64,14 +65,14 @@ func (r *UserRepository) Create(ctx context.Context, user *entities.User) error 
 	return nil
 }
 
-func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.User, error) {
+func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	query := `
 		SELECT id, email, password_hash, first_name, last_name, role, avatar, is_active, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
 
-	user := &entities.User{}
+	user := &domain.User{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID,
 		&user.Email,
@@ -87,7 +88,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.U
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.UserNotFound
+			return nil, domain.UserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
@@ -95,14 +96,14 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.U
 	return user, nil
 }
 
-func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entities.User, error) {
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, email, password_hash, first_name, last_name, role, avatar, is_active, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
 
-	user := &entities.User{}
+	user := &domain.User{}
 	err := r.db.QueryRowContext(ctx, query, strings.ToLower(email)).Scan(
 		&user.ID,
 		&user.Email,
@@ -118,7 +119,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entitie
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.UserNotFound
+			return nil, domain.UserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
@@ -126,7 +127,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*entitie
 	return user, nil
 }
 
-func (r *UserRepository) Update(ctx context.Context, user *entities.User) error {
+func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 	query := `
 		UPDATE users
 		SET email = $2, password_hash = $3, first_name = $4, last_name = $5, 
@@ -152,10 +153,10 @@ func (r *UserRepository) Update(ctx context.Context, user *entities.User) error 
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
 }
 
-func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	query := `DELETE FROM users WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query, id)
@@ -163,10 +164,10 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
 }
 
-func (r *UserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
+func (r *userRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	query := `UPDATE users SET last_login_at = $1, updated_at = $2 WHERE id = $3`
 
 	now := time.Now()
@@ -178,7 +179,7 @@ func (r *UserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) erro
 	return nil
 }
 
-func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) error {
+func (r *userRepository) UpdatePassword(ctx context.Context, id uuid.UUID, hashedPassword string) error {
 	query := `UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3`
 
 	_, err := r.db.ExecContext(ctx, query, hashedPassword, time.Now(), id)
@@ -189,14 +190,14 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, hashe
 	return nil
 }
 
-func (r *UserRepository) GetPublicProfile(ctx context.Context, id uuid.UUID) (*entities.UserProfile, error) {
+func (r *userRepository) GetPublicProfile(ctx context.Context, id uuid.UUID) (*domain.UserProfile, error) {
 	query := `
 		SELECT id, email, first_name, last_name, role, avatar, created_at
 		FROM users
 		WHERE id = $1 AND is_active = true
 	`
 
-	profile := &entities.UserProfile{}
+	profile := &domain.UserProfile{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&profile.ID,
 		&profile.Email,
@@ -209,7 +210,7 @@ func (r *UserRepository) GetPublicProfile(ctx context.Context, id uuid.UUID) (*e
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, errors.UserNotFound
+			return nil, domain.UserNotFound
 		}
 		return nil, fmt.Errorf("failed to get public profile: %w", err)
 	}
@@ -217,7 +218,7 @@ func (r *UserRepository) GetPublicProfile(ctx context.Context, id uuid.UUID) (*e
 	return profile, nil
 }
 
-func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, updates map[string]interface{}) error {
+func (r *userRepository) UpdateProfile(ctx context.Context, id uuid.UUID, updates map[string]interface{}) error {
 	if len(updates) == 0 {
 		return nil
 	}
@@ -255,10 +256,10 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, update
 		return fmt.Errorf("failed to update profile: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
 }
 
-func (r *UserRepository) GetUserStats(ctx context.Context, id uuid.UUID) (*entities.UserStats, error) {
+func (r *userRepository) GetUserStats(ctx context.Context, id uuid.UUID) (*domain.UserStats, error) {
 	query := `
 		SELECT 
 			COALESCE(COUNT(v.id), 0) as video_count,
@@ -272,7 +273,7 @@ func (r *UserRepository) GetUserStats(ctx context.Context, id uuid.UUID) (*entit
 		GROUP BY u.id
 	`
 
-	stats := &entities.UserStats{}
+	stats := &domain.UserStats{}
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&stats.TotalVideos,
 		&stats.TotalViews,
@@ -282,7 +283,7 @@ func (r *UserRepository) GetUserStats(ctx context.Context, id uuid.UUID) (*entit
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return &entities.UserStats{}, nil
+			return &domain.UserStats{}, nil
 		}
 		return nil, fmt.Errorf("failed to get user stats: %w", err)
 	}
@@ -290,7 +291,7 @@ func (r *UserRepository) GetUserStats(ctx context.Context, id uuid.UUID) (*entit
 	return stats, nil
 }
 
-func (r *UserRepository) GetSettings(ctx context.Context, id uuid.UUID) (map[string]interface{}, error) {
+func (r *userRepository) GetSettings(ctx context.Context, id uuid.UUID) (map[string]interface{}, error) {
 	query := `SELECT settings FROM user_settings WHERE user_id = $1`
 
 	var settingsJSON string
@@ -321,7 +322,7 @@ func (r *UserRepository) GetSettings(ctx context.Context, id uuid.UUID) (map[str
 	return settings, nil
 }
 
-func (r *UserRepository) UpdateSettings(ctx context.Context, id uuid.UUID, settings map[string]interface{}) error {
+func (r *userRepository) UpdateSettings(ctx context.Context, id uuid.UUID, settings map[string]interface{}) error {
 	// Note: In a real implementation, you'd marshal settings to JSON
 	query := `
 		INSERT INTO user_settings (user_id, settings, updated_at)
@@ -340,7 +341,7 @@ func (r *UserRepository) UpdateSettings(ctx context.Context, id uuid.UUID, setti
 	return nil
 }
 
-func (r *UserRepository) List(ctx context.Context, page, limit int) ([]*entities.User, int64, error) {
+func (r *userRepository) List(ctx context.Context, page, limit int) ([]*domain.User, int64, error) {
 	offset := (page - 1) * limit
 
 	// Get total count
@@ -365,9 +366,9 @@ func (r *UserRepository) List(ctx context.Context, page, limit int) ([]*entities
 	}
 	defer rows.Close()
 
-	users := []*entities.User{}
+	users := []*domain.User{}
 	for rows.Next() {
-		user := &entities.User{}
+		user := &domain.User{}
 		err := rows.Scan(
 			&user.ID,
 			&user.Email,
@@ -392,7 +393,7 @@ func (r *UserRepository) List(ctx context.Context, page, limit int) ([]*entities
 	return users, total, nil
 }
 
-func (r *UserRepository) Search(ctx context.Context, query string, page, limit int) ([]*entities.User, int64, error) {
+func (r *userRepository) Search(ctx context.Context, query string, page, limit int) ([]*domain.User, int64, error) {
 	offset := (page - 1) * limit
 	searchQuery := "%" + strings.ToLower(query) + "%"
 
@@ -433,9 +434,9 @@ func (r *UserRepository) Search(ctx context.Context, query string, page, limit i
 	}
 	defer rows.Close()
 
-	users := []*entities.User{}
+	users := []*domain.User{}
 	for rows.Next() {
-		user := &entities.User{}
+		user := &domain.User{}
 		err := rows.Scan(
 			&user.ID,
 			&user.Email,
@@ -460,7 +461,7 @@ func (r *UserRepository) Search(ctx context.Context, query string, page, limit i
 	return users, total, nil
 }
 
-func (r *UserRepository) UpdateStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
+func (r *userRepository) UpdateStatus(ctx context.Context, id uuid.UUID, isActive bool) error {
 	query := `UPDATE users SET is_active = $1, updated_at = $2 WHERE id = $3`
 
 	result, err := r.db.ExecContext(ctx, query, isActive, time.Now(), id)
@@ -468,10 +469,10 @@ func (r *UserRepository) UpdateStatus(ctx context.Context, id uuid.UUID, isActiv
 		return fmt.Errorf("failed to update user status: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
 }
 
-func (r *UserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role string) error {
+func (r *userRepository) UpdateRole(ctx context.Context, id uuid.UUID, role string) error {
 	query := `UPDATE users SET role = $1, updated_at = $2 WHERE id = $3`
 
 	result, err := r.db.ExecContext(ctx, query, role, time.Now(), id)
@@ -479,5 +480,5 @@ func (r *UserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role stri
 		return fmt.Errorf("failed to update user role: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, errors.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
 }
