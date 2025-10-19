@@ -54,8 +54,8 @@ export default class UserMenu extends Component {
     return `
       <div class="user-menu">
         <button class="user-menu-trigger" data-action="toggle">
-          <img src="${avatarUrl}" alt="${this.state.user.username}" class="user-avatar">
-          <span class="user-name">${this.state.user.username}</span>
+          <img src="${avatarUrl}" alt="${this.state.user.firstName}" class="user-avatar">
+          <span class="user-name">${this.state.user.firstName}</span>
           <i class="icon-chevron-down"></i>
         </button>
 
