@@ -50,12 +50,10 @@ export default class Modal extends Component {
       <div class="modal-backdrop"></div>
       <div class="modal-dialog modal-${this.options.size}">
         <div class="modal-content">
-          ${this.options.title ? `
-            <div class="modal-header">
-              <h3 class="modal-title">${this.options.title}</h3>
-              <button class="modal-close" aria-label="Cerrar">&times;</button>
-            </div>
-          ` : ''}
+          <div class="modal-header">
+            ${this.options.title ? `<h3 class="modal-title">${this.options.title}</h3>` : '<h3 class="modal-title"></h3>'}
+            <button class="modal-close" aria-label="Cerrar">&times;</button>
+          </div>
           <div class="modal-body">
             ${this.options.content}
           </div>
@@ -112,7 +110,7 @@ export default class Modal extends Component {
 
     // Animación
     setTimeout(() => {
-      this.container.classList.add('modal-open');
+      this.container.classList.add('active');
     }, 10);
 
     return this;
@@ -125,7 +123,7 @@ export default class Modal extends Component {
     if (!this.isOpen) return;
 
     this.isOpen = false;
-    this.container.classList.remove('modal-open');
+    this.container.classList.remove('active');
 
     // Esperar animación antes de ocultar
     setTimeout(() => {

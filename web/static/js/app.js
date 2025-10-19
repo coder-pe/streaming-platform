@@ -340,12 +340,9 @@ class App {
       return;
     }
 
-    const modalContainer = document.createElement('div');
-    const loginFormContainer = document.createElement('div');
-
     this.modals.login = new Modal({
       title: 'Iniciar Sesión',
-      content: loginFormContainer.outerHTML,
+      content: '<div id="loginFormContainer"></div>',
       size: 'small',
       onClose: () => {
         if (this.components.loginForm) {
@@ -356,17 +353,19 @@ class App {
 
     this.modals.login.open();
 
-    // Montar formulario de login en el modal
-    const modalBody = this.modals.login.$('.modal-body');
-    if (modalBody) {
-      this.components.loginForm = new LoginForm(modalBody);
-      this.components.loginForm.mount();
+    // Esperar un momento para que el DOM se actualice
+    setTimeout(() => {
+      const modalBody = this.modals.login.container.querySelector('#loginFormContainer');
+      if (modalBody) {
+        this.components.loginForm = new LoginForm(modalBody);
+        this.components.loginForm.mount();
 
-      // Escuchar evento de login exitoso
-      modalBody.addEventListener('login:success', () => {
-        this.modals.login.close();
-      });
-    }
+        // Escuchar evento de login exitoso
+        modalBody.addEventListener('login:success', () => {
+          this.modals.login.close();
+        });
+      }
+    }, 10);
   }
 
   /**
@@ -378,12 +377,9 @@ class App {
       return;
     }
 
-    const modalContainer = document.createElement('div');
-    const registerFormContainer = document.createElement('div');
-
     this.modals.register = new Modal({
       title: 'Crear Cuenta',
-      content: registerFormContainer.outerHTML,
+      content: '<div id="registerFormContainer"></div>',
       size: 'small',
       onClose: () => {
         if (this.components.registerForm) {
@@ -394,17 +390,19 @@ class App {
 
     this.modals.register.open();
 
-    // Montar formulario de registro en el modal
-    const modalBody = this.modals.register.$('.modal-body');
-    if (modalBody) {
-      this.components.registerForm = new RegisterForm(modalBody);
-      this.components.registerForm.mount();
+    // Esperar un momento para que el DOM se actualice
+    setTimeout(() => {
+      const modalBody = this.modals.register.container.querySelector('#registerFormContainer');
+      if (modalBody) {
+        this.components.registerForm = new RegisterForm(modalBody);
+        this.components.registerForm.mount();
 
-      // Escuchar evento de registro exitoso
-      modalBody.addEventListener('register:success', () => {
-        this.modals.register.close();
-      });
-    }
+        // Escuchar evento de registro exitoso
+        modalBody.addEventListener('register:success', () => {
+          this.modals.register.close();
+        });
+      }
+    }, 10);
   }
 
   /**
