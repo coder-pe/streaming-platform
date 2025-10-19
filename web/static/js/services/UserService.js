@@ -164,6 +164,13 @@ class UserService {
   }
 
   /**
+   * Obtener usuario actual
+   */
+  getUser() {
+    return state.get('user') || storageService.getUserData();
+  }
+
+  /**
    * Obtener URL de avatar
    */
   getAvatarUrl(avatarPath) {

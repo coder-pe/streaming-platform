@@ -131,13 +131,13 @@ class App {
 
     // Eventos de autenticación
     eventBus.on('auth:login', () => {
-      toast.success('¡Bienvenido!');
+      // toast.success('¡Bienvenido!');
       this.closeAllModals();
       router.navigate('home');
     });
 
     eventBus.on('auth:logout', () => {
-      toast.info('Sesión cerrada');
+      // toast.info('Sesión cerrada');
       router.navigate('home');
     });
 
@@ -336,7 +336,21 @@ class App {
    */
   showLoginModal() {
     if (this.modals.login) {
+      // Re-montar el formulario si el modal ya existe
       this.modals.login.open();
+
+      setTimeout(() => {
+        const modalBody = this.modals.login.container.querySelector('#loginFormContainer');
+        if (modalBody) {
+          this.components.loginForm = new LoginForm(modalBody);
+          this.components.loginForm.mount();
+
+          // Escuchar evento de login exitoso
+          modalBody.addEventListener('login:success', () => {
+            this.modals.login.close();
+          });
+        }
+      }, 10);
       return;
     }
 
@@ -347,6 +361,7 @@ class App {
       onClose: () => {
         if (this.components.loginForm) {
           this.components.loginForm.unmount();
+          this.components.loginForm = null;
         }
       }
     });
@@ -373,7 +388,21 @@ class App {
    */
   showRegisterModal() {
     if (this.modals.register) {
+      // Re-montar el formulario si el modal ya existe
       this.modals.register.open();
+
+      setTimeout(() => {
+        const modalBody = this.modals.register.container.querySelector('#registerFormContainer');
+        if (modalBody) {
+          this.components.registerForm = new RegisterForm(modalBody);
+          this.components.registerForm.mount();
+
+          // Escuchar evento de registro exitoso
+          modalBody.addEventListener('register:success', () => {
+            this.modals.register.close();
+          });
+        }
+      }, 10);
       return;
     }
 
@@ -384,6 +413,7 @@ class App {
       onClose: () => {
         if (this.components.registerForm) {
           this.components.registerForm.unmount();
+          this.components.registerForm = null;
         }
       }
     });

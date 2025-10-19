@@ -41,8 +41,9 @@ type RegisterRequest struct {
 }
 
 type AuthResponse struct {
-	Token string             `json:"token"`
-	User  domain.UserProfile `json:"user"`
+	Token        string             `json:"token"`
+	RefreshToken string             `json:"refresh_token,omitempty"`
+	User         domain.UserProfile `json:"user"`
 }
 
 type RefreshRequest struct {
@@ -85,8 +86,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Set refresh token cookie
 	httputil.SetRefreshTokenCookie(w, refreshToken)
 
-	// Responder
-	h.respondWithAuth(w, http.StatusOK, token, user)
+	// Responder (incluir refresh_token en JSON también)
+	h.respondWithAuth(w, http.StatusOK, token, refreshToken, user)
 	h.logger.Info("User logged in successfully: %s", user.Email)
 }
 
@@ -127,8 +128,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Set refresh token cookie
 	httputil.SetRefreshTokenCookie(w, refreshToken)
 
-	// Responder
-	h.respondWithAuth(w, http.StatusCreated, token, userProfile)
+	// Responder (incluir refresh_token en JSON también)
+	h.respondWithAuth(w, http.StatusCreated, token, refreshToken, userProfile)
 	h.logger.Info("User registered successfully: %s", userProfile.Email)
 }
 
@@ -159,8 +160,8 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	// Set nuevo refresh token cookie
 	httputil.SetRefreshTokenCookie(w, newRefreshToken)
 
-	// Responder
-	h.respondWithAuth(w, http.StatusOK, newToken, user)
+	// Responder (incluir refresh_token en JSON también)
+	h.respondWithAuth(w, http.StatusOK, newToken, newRefreshToken, user)
 	h.logger.Info("Token refreshed successfully for user: %s", user.Email)
 }
 
@@ -301,10 +302,11 @@ func (h *AuthHandler) validateRegisterRequest(req *RegisterRequest) error {
 	return nil
 }
 
-func (h *AuthHandler) respondWithAuth(w http.ResponseWriter, status int, token string, user *domain.UserProfile) {
+func (h *AuthHandler) respondWithAuth(w http.ResponseWriter, status int, token string, refreshToken string, user *domain.UserProfile) {
 	response := AuthResponse{
-		Token: token,
-		User:  *user,
+		Token:        token,
+		RefreshToken: refreshToken,
+		User:         *user,
 	}
 	httputil.WriteJSON(w, status, response)
 }

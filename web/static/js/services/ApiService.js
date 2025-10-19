@@ -11,6 +11,8 @@ class ApiService {
     this.baseURL = API_CONFIG.BASE_URL;
     this.timeout = API_CONFIG.TIMEOUT;
     this.maxRetries = API_CONFIG.MAX_RETRIES;
+    this.isRefreshing = false;
+    this.refreshSubscribers = [];
   }
 
   /**
@@ -51,6 +53,50 @@ class ApiService {
       // Manejar errores HTTP
       if (!response.ok) {
         const error = await this.handleError(response);
+
+        // Si es error 401 y tenemos refresh token, intentar refrescar
+        if (error.shouldRetryWithRefresh && !url.includes('/auth/refresh')) {
+          try {
+            // Si ya se está refrescando, esperar
+            if (this.isRefreshing) {
+              return new Promise((resolve, reject) => {
+                this.addRefreshSubscriber((token) => {
+                  // Reintentar la petición original con el nuevo token
+                  this.request(url, options, 0)
+                    .then(resolve)
+                    .catch(reject);
+                });
+              });
+            }
+
+            // Intentar refrescar el token
+            this.isRefreshing = true;
+            const newToken = await this.refreshAuthToken();
+            this.isRefreshing = false;
+            this.onRefreshed(newToken);
+
+            // Reintentar la petición original con el nuevo token
+            return await this.request(url, options, 0);
+          } catch (refreshError) {
+            this.isRefreshing = false;
+            this.refreshSubscribers = [];
+
+            // Solo limpiar sesión si el refresh token es inválido (401/403)
+            // No limpiar por errores de red
+            if (refreshError.status === 401 || refreshError.status === 403) {
+              console.log('Refresh token inválido, limpiando sesión...');
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('userData');
+              eventBus.emit('auth:unauthorized');
+            } else {
+              console.log('Error de red al refrescar token, manteniendo sesión en caché');
+            }
+
+            throw error;
+          }
+        }
+
         throw error;
       }
 
@@ -63,6 +109,11 @@ class ApiService {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
+
+      // Si el error tiene shouldRetryWithRefresh, ya fue manejado arriba
+      if (error.shouldRetryWithRefresh) {
+        throw error;
+      }
 
       // Reintentar en caso de error de red
       if (retries < this.maxRetries && this.shouldRetry(error)) {
@@ -94,12 +145,66 @@ class ApiService {
 
     // Manejar casos especiales
     if (response.status === 401) {
-      eventBus.emit('auth:unauthorized');
+      // No emitir auth:unauthorized inmediatamente, se manejará en request()
+      error.shouldRetryWithRefresh = true;
     } else if (response.status === 403) {
       eventBus.emit('auth:forbidden');
     }
 
     return error;
+  }
+
+  /**
+   * Intentar refrescar el token de autenticación
+   */
+  async refreshAuthToken() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      const error = new Error('No refresh token available');
+      error.status = 401;
+      throw error;
+    }
+
+    // Hacer la petición de refresh sin pasar por el interceptor
+    const response = await fetch(`${this.baseURL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+
+    if (!response.ok) {
+      const error = new Error('Failed to refresh token');
+      error.status = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+
+    if (data.token) {
+      localStorage.setItem('authToken', data.token);
+      if (data.refresh_token) {
+        localStorage.setItem('refreshToken', data.refresh_token);
+      }
+    }
+
+    return data.token;
+  }
+
+  /**
+   * Agregar petición a la cola de espera durante el refresh
+   */
+  onRefreshed(token) {
+    this.refreshSubscribers.forEach(callback => callback(token));
+    this.refreshSubscribers = [];
+  }
+
+  /**
+   * Agregar callback a la cola de suscriptores
+   */
+  addRefreshSubscriber(callback) {
+    this.refreshSubscribers.push(callback);
   }
 
   /**
@@ -165,7 +270,11 @@ class ApiService {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
-      // Configurar headers
+      // Enviar petición
+      xhr.open('POST', `${this.baseURL}${url}`);
+      xhr.timeout = this.timeout;
+
+      // Configurar headers (después de open)
       const token = localStorage.getItem('authToken');
       if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
@@ -205,9 +314,6 @@ class ApiService {
         reject(new Error('Upload timeout'));
       });
 
-      // Enviar petición
-      xhr.open('POST', `${this.baseURL}${url}`);
-      xhr.timeout = this.timeout;
       xhr.send(formData);
     });
   }

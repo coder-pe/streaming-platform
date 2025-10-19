@@ -104,7 +104,7 @@ class AuthService {
    */
   async getCurrentUser() {
     try {
-      const response = await apiService.get('/auth/me');
+      const response = await apiService.get('/user/profile');
 
       if (response.user) {
         storageService.setUserData(response.user);
@@ -167,17 +167,20 @@ class AuthService {
    */
   async initialize() {
     if (this.isAuthenticated()) {
+      // Primero, restaurar usuario desde localStorage si existe
+      const storedUser = storageService.getUserData();
+      if (storedUser) {
+        state.setUser(storedUser);
+      }
+
+      // Intentar obtener datos actualizados del servidor (sin bloquear la UI)
+      // Si falla, el interceptor de ApiService manejará el refresh automáticamente
       try {
         await this.getCurrentUser();
       } catch (error) {
-        // Si falla, intentar refrescar token
-        try {
-          await this.refreshToken();
-          await this.getCurrentUser();
-        } catch (refreshError) {
-          // Si falla el refresh, limpiar sesión
-          this.clearAuthData();
-        }
+        // No limpiar la sesión aquí - el interceptor ya maneja el refresh
+        // Solo logear el error para debugging
+        console.log('No se pudo actualizar los datos del usuario, usando datos en caché');
       }
     }
   }

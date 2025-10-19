@@ -121,7 +121,7 @@ export default class LoginForm extends Component {
 
       await authService.login(this.state.email, this.state.password);
 
-      toast.success('¡Sesión iniciada correctamente!');
+      // toast.success('¡Sesión iniciada correctamente!');
 
       // Limpiar formulario
       this.setState({ email: '', password: '', errors: {} });
@@ -137,5 +137,17 @@ export default class LoginForm extends Component {
 
   emit(event, data) {
     this.container.dispatchEvent(new CustomEvent(event, { detail: data }));
+  }
+
+  /**
+   * Hook llamado cuando el componente se desmonta
+   */
+  onUnmount() {
+    // Limpiar estado del formulario
+    this.state = {
+      email: '',
+      password: '',
+      errors: {},
+    };
   }
 }

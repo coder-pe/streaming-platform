@@ -202,4 +202,19 @@ export default class RegisterForm extends Component {
   emit(event, data) {
     this.container.dispatchEvent(new CustomEvent(event, { detail: data }));
   }
+
+  /**
+   * Hook llamado cuando el componente se desmonta
+   */
+  onUnmount() {
+    // Limpiar estado del formulario
+    this.state = {
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      errors: {},
+    };
+  }
 }
