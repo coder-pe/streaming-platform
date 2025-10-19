@@ -35,8 +35,8 @@ func NewUserHandler(userService input.UserService, logger logger.Logger) *UserHa
 }
 
 type UpdateProfileRequest struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 	Bio       string `json:"bio"`
 }
 
@@ -78,11 +78,11 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validar campos
-	if err := validator.ValidateName("first_name", req.FirstName); err != nil {
+	if err := validator.ValidateName("firstName", req.FirstName); err != nil {
 		httputil.WriteValidationError(w, err.Error())
 		return
 	}
-	if err := validator.ValidateName("last_name", req.LastName); err != nil {
+	if err := validator.ValidateName("lastName", req.LastName); err != nil {
 		httputil.WriteValidationError(w, err.Error())
 		return
 	}
@@ -106,9 +106,9 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Update user data
 	updateData := map[string]interface{}{
-		"first_name": req.FirstName,
-		"last_name":  req.LastName,
-		"bio":        req.Bio,
+		"firstName": req.FirstName,
+		"lastName":  req.LastName,
+		"bio":       req.Bio,
 	}
 
 	updatedUser, err := h.userService.UpdateUser(r.Context(), userUUID, updateData)

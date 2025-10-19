@@ -80,11 +80,11 @@ func (s *userService) UpdateUser(ctx context.Context, userID uuid.UUID, updates 
 
 	for key, value := range updates {
 		switch key {
-		case "first_name":
+		case "firstName":
 			if str, ok := value.(string); ok && len(strings.TrimSpace(str)) > 0 {
 				validatedUpdates[key] = strings.TrimSpace(str)
 			}
-		case "last_name":
+		case "lastName":
 			if str, ok := value.(string); ok && len(strings.TrimSpace(str)) > 0 {
 				validatedUpdates[key] = strings.TrimSpace(str)
 			}

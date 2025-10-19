@@ -88,7 +88,7 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, domain.UserNotFound
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
@@ -119,7 +119,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, domain.UserNotFound
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
@@ -153,7 +153,7 @@ func (r *userRepository) Update(ctx context.Context, user *domain.User) error {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.ErrUserNotFound)
 }
 
 func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
@@ -164,7 +164,7 @@ func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.ErrUserNotFound)
 }
 
 func (r *userRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
@@ -210,7 +210,7 @@ func (r *userRepository) GetPublicProfile(ctx context.Context, id uuid.UUID) (*d
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, domain.UserNotFound
+			return nil, domain.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get public profile: %w", err)
 	}
@@ -256,7 +256,7 @@ func (r *userRepository) UpdateProfile(ctx context.Context, id uuid.UUID, update
 		return fmt.Errorf("failed to update profile: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.ErrUserNotFound)
 }
 
 func (r *userRepository) GetUserStats(ctx context.Context, id uuid.UUID) (*domain.UserStats, error) {
@@ -469,7 +469,7 @@ func (r *userRepository) UpdateStatus(ctx context.Context, id uuid.UUID, isActiv
 		return fmt.Errorf("failed to update user status: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.ErrUserNotFound)
 }
 
 func (r *userRepository) UpdateRole(ctx context.Context, id uuid.UUID, role string) error {
@@ -480,5 +480,5 @@ func (r *userRepository) UpdateRole(ctx context.Context, id uuid.UUID, role stri
 		return fmt.Errorf("failed to update user role: %w", err)
 	}
 
-	return dbutil.CheckRowsAffected(result, domain.UserNotFound)
+	return dbutil.CheckRowsAffected(result, domain.ErrUserNotFound)
 }

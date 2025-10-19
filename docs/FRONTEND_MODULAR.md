@@ -159,7 +159,7 @@ export class VideoCard extends Component {
 
   getInstructorName() {
     if (!this.video.instructor) return 'Instructor';
-    return `${this.video.instructor.first_name} ${this.video.instructor.last_name}`;
+    return `${this.video.instructor.firstName} ${this.video.instructor.lastName}`;
   }
 
   attachEvents() {

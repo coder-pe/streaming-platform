@@ -13,7 +13,8 @@ export default class RegisterForm extends Component {
   constructor(container) {
     super(container);
     this.state = {
-      username: '',
+      firstName: '',
+      lastName: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -25,17 +26,31 @@ export default class RegisterForm extends Component {
     return `
       <form class="auth-form" id="registerForm">
         <div class="form-group">
-          <label for="registerUsername">Nombre de usuario</label>
+          <label for="registerFirstName">Nombre</label>
           <input
             type="text"
-            id="registerUsername"
-            name="username"
-            class="form-control ${this.state.errors.username ? 'error' : ''}"
-            placeholder="usuario123"
-            value="${this.state.username}"
+            id="registerFirstName"
+            name="firstName"
+            class="form-control ${this.state.errors.firstName? 'error' : ''}"
+            placeholder="John"
+            value="${this.state.firstName}"
             required
           />
-          ${this.state.errors.username ? `<span class="error-message">${this.state.errors.username}</span>` : ''}
+          ${this.state.errors.firstName? `<span class="error-message">${this.state.errors.firstName}</span>` : ''}
+        </div>
+
+        <div class="form-group">
+          <label for="registerLastName">Apellido</label>
+          <input
+            type="text"
+            id="registerLastName"
+            name="firstName"
+            class="form-control ${this.state.errors.lastName? 'error' : ''}"
+            placeholder="Smith"
+            value="${this.state.lastName}"
+            required
+          />
+          ${this.state.errors.lastName? `<span class="error-message">${this.state.errors.lastName}</span>` : ''}
         </div>
 
         <div class="form-group">
@@ -93,15 +108,13 @@ export default class RegisterForm extends Component {
       form.addEventListener('submit', (e) => this.handleSubmit(e));
     }
 
-    // Input change listeners
-    ['username', 'email', 'password', 'confirmPassword'].forEach(field => {
+    // Input change listeners - solo actualizar estado sin re-render
+    ['firstName', 'lastName', 'email', 'password', 'confirmPassword'].forEach(field => {
       const input = this.$(`#register${field.charAt(0).toUpperCase() + field.slice(1)}`);
       if (input) {
         input.addEventListener('input', (e) => {
-          this.setState({
-            [field]: e.target.value,
-            errors: { ...this.state.errors, [field]: '' }
-          });
+          this.state[field] = e.target.value;
+          this.state.errors[field] = '';
         });
       }
     });
@@ -110,10 +123,16 @@ export default class RegisterForm extends Component {
   validate() {
     const errors = {};
 
-    if (!this.state.username) {
-      errors.username = 'El nombre de usuario es requerido';
-    } else if (this.state.username.length < 3) {
-      errors.username = 'El nombre de usuario debe tener al menos 3 caracteres';
+    if (!this.state.firstName) {
+      errors.firstName = 'El nombre es requerido';
+    } else if (this.state.firstName.length < 3) {
+      errors.firstName = 'El nombre debe tener al menos 3 caracteres';
+    }
+
+    if (!this.state.lastName) {
+      errors.lastName = 'El apellido es requerido';
+    } else if (this.state.lastName.length < 3) {
+      errors.lastName = 'El apellido debe tener al menos 3 caracteres';
     }
 
     if (!this.state.email) {
@@ -134,7 +153,11 @@ export default class RegisterForm extends Component {
       errors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
-    this.setState({ errors });
+    // Solo re-renderizar si hay errores
+    if (Object.keys(errors).length > 0) {
+      this.setState({ errors });
+    }
+
     return Object.keys(errors).length === 0;
   }
 
@@ -149,7 +172,8 @@ export default class RegisterForm extends Component {
       loading.show('Creando cuenta...');
 
       await authService.register(
-        this.state.username,
+        this.state.firstName,
+        this.state.lastName,
         this.state.email,
         this.state.password
       );
@@ -158,7 +182,8 @@ export default class RegisterForm extends Component {
 
       // Limpiar formulario
       this.setState({
-        username: '',
+        firstName: '',
+        lastName: '',
         email: '',
         password: '',
         confirmPassword: '',

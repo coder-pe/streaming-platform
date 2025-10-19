@@ -112,10 +112,10 @@ func (s *authService) Register(ctx context.Context, email, password, firstName, 
 	}
 
 	// Validar nombre
-	if err := validator.ValidateRequired("first_name", firstName); err != nil {
+	if err := validator.ValidateRequired("firstName", firstName); err != nil {
 		return "", "", nil, err
 	}
-	if err := validator.ValidateRequired("last_name", lastName); err != nil {
+	if err := validator.ValidateRequired("lastName", lastName); err != nil {
 		return "", "", nil, err
 	}
 

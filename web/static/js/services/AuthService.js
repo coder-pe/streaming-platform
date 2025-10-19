@@ -12,10 +12,11 @@ class AuthService {
   /**
    * Registrar nuevo usuario
    */
-  async register(username, email, password) {
+  async register(firstName, lastName, email, password) {
     try {
       const response = await apiService.post('/auth/register', {
-        username,
+        firstName,
+        lastName,
         email,
         password,
       });

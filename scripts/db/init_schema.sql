@@ -226,7 +226,7 @@ CREATE TRIGGER update_notifications_updated_at BEFORE UPDATE ON notifications
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert a default admin user for testing
-INSERT INTO users (email, password_hash, first_name, last_name, role, is_active) 
+INSERT INTO users (email, password_hash, firstName, lastName, role, is_active) 
 VALUES (
     'admin@streamlearn.com', 
     '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewytPi7n6RHxNJ1K', -- password: admin123

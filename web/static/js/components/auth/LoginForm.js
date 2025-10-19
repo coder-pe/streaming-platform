@@ -67,19 +67,21 @@ export default class LoginForm extends Component {
       form.addEventListener('submit', (e) => this.handleSubmit(e));
     }
 
-    // Input change listeners
+    // Input change listeners - solo actualizar estado sin re-render
     const emailInput = this.$('#loginEmail');
     const passwordInput = this.$('#loginPassword');
 
     if (emailInput) {
       emailInput.addEventListener('input', (e) => {
-        this.setState({ email: e.target.value, errors: { ...this.state.errors, email: '' } });
+        this.state.email = e.target.value;
+        this.state.errors.email = '';
       });
     }
 
     if (passwordInput) {
       passwordInput.addEventListener('input', (e) => {
-        this.setState({ password: e.target.value, errors: { ...this.state.errors, password: '' } });
+        this.state.password = e.target.value;
+        this.state.errors.password = '';
       });
     }
   }
@@ -99,7 +101,11 @@ export default class LoginForm extends Component {
       errors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
 
-    this.setState({ errors });
+    // Solo re-renderizar si hay errores
+    if (Object.keys(errors).length > 0) {
+      this.setState({ errors });
+    }
+
     return Object.keys(errors).length === 0;
   }
 

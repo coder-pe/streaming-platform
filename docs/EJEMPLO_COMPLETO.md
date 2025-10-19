@@ -326,8 +326,8 @@ Set-Cookie: refresh_token=a7f3c9e2...; HttpOnly; Secure; SameSite=Strict; Path=/
   "user": {
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "miguel@example.com",
-    "first_name": "Miguel",
-    "last_name": "Mamani",
+    "firstName": "Miguel",
+    "lastName": "Mamani",
     "role": "student",
     "avatar": null,
     "created_at": "2024-10-01T10:00:00Z"

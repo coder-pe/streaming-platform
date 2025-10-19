@@ -34,14 +34,14 @@ type LoginRequest struct {
 }
 
 type RegisterRequest struct {
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
 	Email     string `json:"email"`
 	Password  string `json:"password"`
 }
 
 type AuthResponse struct {
-	Token string               `json:"token"`
+	Token string             `json:"token"`
 	User  domain.UserProfile `json:"user"`
 }
 
@@ -286,10 +286,10 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // Helper methods
 
 func (h *AuthHandler) validateRegisterRequest(req *RegisterRequest) error {
-	if err := validator.ValidateName("first_name", req.FirstName); err != nil {
+	if err := validator.ValidateName("firstName", req.FirstName); err != nil {
 		return err
 	}
-	if err := validator.ValidateName("last_name", req.LastName); err != nil {
+	if err := validator.ValidateName("lastName", req.LastName); err != nil {
 		return err
 	}
 	if err := validator.ValidateEmail(req.Email); err != nil {
