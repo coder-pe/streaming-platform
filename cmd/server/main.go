@@ -58,19 +58,18 @@ func main() {
 	videoService := services.NewVideoService(videoRepo, cacheRepo)
 	streamingService := services.NewStreamingService(videoRepo, cacheRepo, cfg.CDNBaseURL, cfg.JWTSecret)
 
+	// Worker Pool - Debe crearse antes de los handlers
+	workerPool := workers.NewWorkerPool(cfg.WorkerPoolSize, log)
+	transcodingWorker := workers.NewTranscodingWorker(videoService, cfg.FFmpegPath, cfg.StoragePath)
+	workerPool.RegisterWorker("transcoding", transcodingWorker)
+	workerPool.Start()
+	defer workerPool.Stop()
+
 	// Input Adapters (Handlers HTTP) - Usan los servicios del core
 	authHandler := httpHandlers.NewAuthHandler(authService, log)
 	userHandler := httpHandlers.NewUserHandler(userService, log)
-	videoHandler := httpHandlers.NewVideoHandler(videoService, log)
+	videoHandler := httpHandlers.NewVideoHandler(videoService, workerPool, cfg.StoragePath, log)
 	streamingHandler := httpHandlers.NewStreamingHandler(streamingService, log)
-
-	// Worker Pool
-	// TODO: Actualizar worker para usar los servicios del core
-	workerPool := workers.NewWorkerPool(cfg.WorkerPoolSize, log)
-	// transcodingWorker := workers.NewTranscodingWorker(videoService, cfg.FFmpegPath, cfg.StoragePath)
-	// workerPool.RegisterWorker("transcoding", transcodingWorker)
-	workerPool.Start()
-	defer workerPool.Stop()
 
 	// Router
 	router := mux.NewRouter()

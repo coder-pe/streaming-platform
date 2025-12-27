@@ -16,6 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"streaming-platform/internal/core/domain"
 	"streaming-platform/internal/core/ports/input"
+	"streaming-platform/internal/infrastructure/workers"
 	"streaming-platform/pkg/httputil"
 	"streaming-platform/pkg/logger"
 	"streaming-platform/pkg/validator"
@@ -23,13 +24,17 @@ import (
 
 type VideoHandler struct {
 	videoService input.VideoService
+	workerPool   *workers.WorkerPool
 	logger       logger.Logger
+	storagePath  string
 }
 
-func NewVideoHandler(videoService input.VideoService, logger logger.Logger) *VideoHandler {
+func NewVideoHandler(videoService input.VideoService, workerPool *workers.WorkerPool, storagePath string, logger logger.Logger) *VideoHandler {
 	return &VideoHandler{
 		videoService: videoService,
+		workerPool:   workerPool,
 		logger:       logger,
+		storagePath:  storagePath,
 	}
 }
 
@@ -154,9 +159,9 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Guardar archivo temporal
-	uploadDir := filepath.Join("uploads", "temp")
+	uploadDir := filepath.Join(h.storagePath, "temp")
 	os.MkdirAll(uploadDir, 0755)
-	
+
 	tempFilePath := filepath.Join(uploadDir, video.ID.String()+"_"+header.Filename)
 	tempFile, err := os.Create(tempFilePath)
 	if err != nil {
@@ -174,14 +179,16 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enviar trabajo de transcodificación
-	job := map[string]interface{}{
-		"type":      "transcoding",
-		"video_id":  video.ID.String(),
-		"file_path": tempFilePath,
+	// Enviar trabajo de transcodificación al WorkerPool
+	job := workers.Job{
+		Type: "transcoding",
+		Data: map[string]interface{}{
+			"video_id":  video.ID.String(),
+			"file_path": tempFilePath,
+		},
 	}
 
-	if err := h.videoService.QueueTranscodingJob(r.Context(), job); err != nil {
+	if err := h.workerPool.SubmitJob(job); err != nil {
 		h.logger.Error("Error queuing transcoding job: %v", err)
 		httputil.WriteInternalError(w, "Error processing video")
 		return

@@ -1,0 +1,6 @@
+# Ignore all files in storage directories
+*
+# But keep the directory structure
+!.gitignore
+!.gitkeep
+!*/

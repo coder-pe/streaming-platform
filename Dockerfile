@@ -18,7 +18,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o /app/server ./cmd
 # Stage 2: Create the final, minimal image
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
+# Install FFmpeg and other dependencies
+RUN apk --no-cache add \
+    ca-certificates \
+    ffmpeg
 
 WORKDIR /app
 
@@ -27,6 +30,9 @@ COPY --from=builder /app/server .
 
 # Copy the web assets to be served by the application
 COPY ./web ./web
+
+# Create storage directories for videos and thumbnails
+RUN mkdir -p /app/storage/videos /app/storage/thumbnails /app/storage/temp
 
 # Expose the port the app runs on
 EXPOSE 8080
