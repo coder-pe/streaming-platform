@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"streaming-platform/internal/core/domain"
 	"streaming-platform/internal/core/ports/input"
-	"streaming-platform/internal/infrastructure/workers"
+	"streaming-platform/internal/core/ports/output"
 	"streaming-platform/pkg/httputil"
 	"streaming-platform/pkg/logger"
 	"streaming-platform/pkg/validator"
@@ -24,15 +24,15 @@ import (
 
 type VideoHandler struct {
 	videoService input.VideoService
-	workerPool   *workers.WorkerPool
+	queueRepo    output.QueueRepository
 	logger       logger.Logger
 	storagePath  string
 }
 
-func NewVideoHandler(videoService input.VideoService, workerPool *workers.WorkerPool, storagePath string, logger logger.Logger) *VideoHandler {
+func NewVideoHandler(videoService input.VideoService, queueRepo output.QueueRepository, storagePath string, logger logger.Logger) *VideoHandler {
 	return &VideoHandler{
 		videoService: videoService,
-		workerPool:   workerPool,
+		queueRepo:    queueRepo,
 		logger:       logger,
 		storagePath:  storagePath,
 	}
@@ -179,8 +179,8 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enviar trabajo de transcodificación al WorkerPool
-	job := workers.Job{
+	// Enviar trabajo de transcodificación a RabbitMQ
+	job := output.JobMessage{
 		Type: "transcoding",
 		Data: map[string]interface{}{
 			"video_id":  video.ID.String(),
@@ -188,7 +188,7 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	if err := h.workerPool.SubmitJob(job); err != nil {
+	if err := h.queueRepo.PublishJob(r.Context(), job); err != nil {
 		h.logger.Error("Error queuing transcoding job: %v", err)
 		httputil.WriteInternalError(w, "Error processing video")
 		return

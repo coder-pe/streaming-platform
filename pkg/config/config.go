@@ -36,6 +36,19 @@ type Config struct {
 	SMTPPort     string
 	SMTPUsername string
 	SMTPPassword string
+
+	// RabbitMQ
+	RabbitMQURL string
+
+	// MinIO (S3-compatible storage)
+	MinIOEndpoint  string
+	MinIOAccessKey string
+	MinIOSecretKey string
+	MinIOBucket    string
+	MinIOUseSSL    bool
+
+	// Elasticsearch
+	ElasticsearchURL string
 }
 
 func Load() *Config {
@@ -66,6 +79,19 @@ func Load() *Config {
 		SMTPPort:     getEnv("SMTP_PORT", "587"),
 		SMTPUsername: getEnv("SMTP_USERNAME", ""),
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+
+		// RabbitMQ
+		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://admin:password123@localhost:5672/"),
+
+		// MinIO
+		MinIOEndpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
+		MinIOAccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
+		MinIOSecretKey: getEnv("MINIO_SECRET_KEY", "minioadmin123"),
+		MinIOBucket:    getEnv("MINIO_BUCKET", "videos"),
+		MinIOUseSSL:    getEnvAsBool("MINIO_USE_SSL", false),
+
+		// Elasticsearch
+		ElasticsearchURL: getEnv("ELASTICSEARCH_URL", "http://localhost:9200"),
 	}
 }
 
@@ -80,6 +106,15 @@ func getEnvAsInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue

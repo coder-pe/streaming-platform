@@ -14,8 +14,12 @@ import (
 
 	httpHandlers "streaming-platform/internal/adapters/input/http"
 	"streaming-platform/internal/adapters/input/http/middleware"
+	elasticsearchAdapter "streaming-platform/internal/adapters/output/persistence/elasticsearch"
+	minioAdapter "streaming-platform/internal/adapters/output/persistence/minio"
 	postgresAdapter "streaming-platform/internal/adapters/output/persistence/postgres"
+	rabbitmqAdapter "streaming-platform/internal/adapters/output/persistence/rabbitmq"
 	redisAdapter "streaming-platform/internal/adapters/output/persistence/redis"
+	"streaming-platform/internal/core/ports/output"
 	"streaming-platform/internal/core/services"
 	"streaming-platform/internal/infrastructure/workers"
 	"streaming-platform/pkg/config"
@@ -47,10 +51,49 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	// RabbitMQ connection
+	rabbitMQClient, err := database.NewRabbitMQ(cfg.RabbitMQURL)
+	if err != nil {
+		log.Error("Error connecting to RabbitMQ: %v", err)
+		os.Exit(1)
+	}
+	defer rabbitMQClient.Close()
+
+	// MinIO connection
+	minioClient, err := database.NewMinIO(
+		cfg.MinIOEndpoint,
+		cfg.MinIOAccessKey,
+		cfg.MinIOSecretKey,
+		cfg.MinIOBucket,
+		cfg.MinIOUseSSL,
+	)
+	if err != nil {
+		log.Error("Error connecting to MinIO: %v", err)
+		os.Exit(1)
+	}
+
+	// Elasticsearch connection
+	esClient, err := database.NewElasticsearch([]string{cfg.ElasticsearchURL})
+	if err != nil {
+		log.Error("Error connecting to Elasticsearch: %v", err)
+		os.Exit(1)
+	}
+
 	// Output Adapters (Repositorios) - Implementan los puertos de salida
 	userRepo := postgresAdapter.NewUserRepository(db)
 	videoRepo := postgresAdapter.NewVideoRepository(db)
 	cacheRepo := redisAdapter.NewCacheRepository(redisClient)
+	queueRepo := rabbitmqAdapter.NewQueueRepository(rabbitMQClient, log)
+	_ = minioAdapter.NewStorageRepository(minioClient, log) // Preparado para uso futuro (Fase 3)
+	searchRepo := elasticsearchAdapter.NewSearchRepository(esClient, log)
+
+	// Initialize Elasticsearch index
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if err := searchRepo.InitializeIndex(ctx); err != nil {
+		log.Error("Warning: Failed to initialize Elasticsearch index: %v", err)
+		// No salir, solo registrar el error
+	}
+	cancel()
 
 	// Core Services - Implementan los puertos de entrada, usan los puertos de salida
 	authService := services.NewAuthService(userRepo, cacheRepo, cfg.JWTSecret)
@@ -65,10 +108,20 @@ func main() {
 	workerPool.Start()
 	defer workerPool.Stop()
 
+	// Iniciar consumo de trabajos desde RabbitMQ
+	go func() {
+		err := queueRepo.ConsumeJobs(context.Background(), "transcoding_queue", func(job output.JobMessage) error {
+			return workerPool.ProcessJobFromQueue(job)
+		})
+		if err != nil {
+			log.Error("Error starting job consumer: %v", err)
+		}
+	}()
+
 	// Input Adapters (Handlers HTTP) - Usan los servicios del core
 	authHandler := httpHandlers.NewAuthHandler(authService, log)
 	userHandler := httpHandlers.NewUserHandler(userService, log)
-	videoHandler := httpHandlers.NewVideoHandler(videoService, workerPool, cfg.StoragePath, log)
+	videoHandler := httpHandlers.NewVideoHandler(videoService, queueRepo, cfg.StoragePath, log)
 	streamingHandler := httpHandlers.NewStreamingHandler(streamingService, log)
 
 	// Router
@@ -142,7 +195,7 @@ func main() {
 	log.Info("Server is shutting down...")
 
 	// Graceful shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {

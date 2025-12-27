@@ -117,6 +117,32 @@ func (wp *WorkerPool) processJob(workerID int, job Job) {
 	wp.logger.Info("Worker %d completed job %s in %v", workerID, job.Type, duration)
 }
 
+// ProcessJobFromQueue procesa un trabajo que viene de una cola externa (RabbitMQ)
+func (wp *WorkerPool) ProcessJobFromQueue(jobMessage interface{}) error {
+	// Convertir el mensaje de la cola en un Job del WorkerPool
+	jobMap, ok := jobMessage.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid job message format")
+	}
+
+	jobType, ok := jobMap["type"].(string)
+	if !ok {
+		return fmt.Errorf("missing or invalid job type")
+	}
+
+	data, ok := jobMap["data"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("missing or invalid job data")
+	}
+
+	job := Job{
+		Type: jobType,
+		Data: data,
+	}
+
+	return wp.SubmitJob(job)
+}
+
 // Errores personalizados
 var (
 	ErrJobSubmissionTimeout = fmt.Errorf("job submission timeout")
