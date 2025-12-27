@@ -29,6 +29,12 @@ type UserService interface {
 	// GetWatchHistory obtiene el historial de visualización
 	GetWatchHistory(ctx context.Context, userID uuid.UUID, page, limit int) ([]domain.WatchHistory, int64, error)
 
+	// GetContinueWatching obtiene videos para continuar viendo (>10s y <90% completo)
+	GetContinueWatching(ctx context.Context, userID uuid.UUID, limit int) ([]domain.WatchHistory, error)
+
+	// UpdateWatchProgress actualiza el progreso de visualización de un video
+	UpdateWatchProgress(ctx context.Context, userID, videoID uuid.UUID, position int, quality string) error
+
 	// GetFavorites obtiene los videos favoritos del usuario
 	GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]domain.Video, int64, error)
 

@@ -52,6 +52,7 @@ type WatchHistory struct {
 	ID        uuid.UUID `json:"id" db:"id"`
 	UserID    uuid.UUID `json:"userId" db:"user_id"`
 	VideoID   uuid.UUID `json:"videoId" db:"video_id"`
+	Video     *Video    `json:"video,omitempty"` // Puede incluir el video completo
 	Position  int       `json:"position" db:"position"`
 	Quality   string    `json:"quality" db:"quality"`
 	WatchedAt time.Time `json:"watchedAt" db:"watched_at"`

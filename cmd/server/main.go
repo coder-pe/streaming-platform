@@ -82,6 +82,8 @@ func main() {
 	// Output Adapters (Repositorios) - Implementan los puertos de salida
 	userRepo := postgresAdapter.NewUserRepository(db)
 	videoRepo := postgresAdapter.NewVideoRepository(db)
+	favoriteRepo := postgresAdapter.NewFavoriteRepository(db)
+	watchHistoryRepo := postgresAdapter.NewWatchHistoryRepository(db)
 	cacheRepo := redisAdapter.NewCacheRepository(redisClient)
 	queueRepo := rabbitmqAdapter.NewQueueRepository(rabbitMQClient, log)
 	_ = minioAdapter.NewStorageRepository(minioClient, log) // Preparado para uso futuro (Fase 3)
@@ -97,7 +99,7 @@ func main() {
 
 	// Core Services - Implementan los puertos de entrada, usan los puertos de salida
 	authService := services.NewAuthService(userRepo, cacheRepo, cfg.JWTSecret)
-	userService := services.NewUserService(userRepo, cacheRepo)
+	userService := services.NewUserService(userRepo, cacheRepo, favoriteRepo, watchHistoryRepo)
 	videoService := services.NewVideoService(videoRepo, cacheRepo, searchRepo)
 	streamingService := services.NewStreamingService(videoRepo, cacheRepo, cfg.CDNBaseURL, cfg.JWTSecret)
 
@@ -151,6 +153,18 @@ func main() {
 	protected.HandleFunc("/user/profile", userHandler.UpdateProfile).Methods("PUT")
 	protected.HandleFunc("/user/stats", userHandler.GetUserStats).Methods("GET")
 	protected.HandleFunc("/users/{id}/avatar", userHandler.UploadAvatar).Methods("POST")
+	protected.HandleFunc("/user/settings", userHandler.GetSettings).Methods("GET")
+	protected.HandleFunc("/user/settings", userHandler.UpdateSettings).Methods("PUT")
+
+	// Favorites routes
+	protected.HandleFunc("/favorites", userHandler.GetFavorites).Methods("GET")
+	protected.HandleFunc("/favorites/{videoId}", userHandler.AddToFavorites).Methods("POST")
+	protected.HandleFunc("/favorites/{videoId}", userHandler.RemoveFromFavorites).Methods("DELETE")
+
+	// Watch history routes
+	protected.HandleFunc("/history", userHandler.GetWatchHistory).Methods("GET")
+	protected.HandleFunc("/history/{videoId}/progress", userHandler.UpdateWatchProgress).Methods("POST")
+	protected.HandleFunc("/continue-watching", userHandler.GetContinueWatching).Methods("GET")
 
 	// Video routes
 	protected.HandleFunc("/videos", videoHandler.UploadVideo).Methods("POST")

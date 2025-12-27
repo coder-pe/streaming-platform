@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"streaming-platform/internal/core/domain"
 	"streaming-platform/internal/core/ports/input"
@@ -20,15 +19,24 @@ import (
 
 // userService implementa el puerto de entrada UserService
 type userService struct {
-	userRepo  output.UserRepository
-	cacheRepo output.CacheRepository
+	userRepo         output.UserRepository
+	cacheRepo        output.CacheRepository
+	favoriteRepo     output.FavoriteRepository
+	watchHistoryRepo output.WatchHistoryRepository
 }
 
 // NewUserService crea una nueva instancia del servicio de usuarios
-func NewUserService(userRepo output.UserRepository, cacheRepo output.CacheRepository) input.UserService {
+func NewUserService(
+	userRepo output.UserRepository,
+	cacheRepo output.CacheRepository,
+	favoriteRepo output.FavoriteRepository,
+	watchHistoryRepo output.WatchHistoryRepository,
+) input.UserService {
 	return &userService{
-		userRepo:  userRepo,
-		cacheRepo: cacheRepo,
+		userRepo:         userRepo,
+		cacheRepo:        cacheRepo,
+		favoriteRepo:     favoriteRepo,
+		watchHistoryRepo: watchHistoryRepo,
 	}
 }
 
@@ -232,69 +240,116 @@ func (s *userService) GetUserStats(ctx context.Context, userID uuid.UUID) (*doma
 
 // Funcionalidad de favoritos
 func (s *userService) AddToFavorites(ctx context.Context, userID, videoID uuid.UUID) error {
-	// TODO: Implementar con FavoriteRepository
-	// Por ahora, usando caché como solución temporal
-
-	favoritesKey := fmt.Sprintf("favorites:%s", userID.String())
-
-	// Verificar si ya está en favoritos
-	favorites, err := s.getFavoritesFromCache(ctx, userID)
-	if err == nil {
-		for _, fav := range favorites {
-			if fav == videoID.String() {
-				return fmt.Errorf("video already in favorites")
-			}
-		}
-	}
-
-	// Añadir a favoritos
-	if err := s.cacheRepo.SetAdd(ctx, favoritesKey, videoID.String()); err != nil {
+	if err := s.favoriteRepo.AddFavorite(ctx, userID, videoID); err != nil {
 		return fmt.Errorf("failed to add to favorites: %w", err)
 	}
+
+	// Invalidar caché de favoritos si existe
+	favoritesKey := fmt.Sprintf("favorites:%s", userID.String())
+	_ = s.cacheRepo.Delete(ctx, favoritesKey) // best-effort
 
 	return nil
 }
 
 func (s *userService) RemoveFromFavorites(ctx context.Context, userID, videoID uuid.UUID) error {
-	favoritesKey := fmt.Sprintf("favorites:%s", userID.String())
-
-	if err := s.cacheRepo.SetRemove(ctx, favoritesKey, videoID.String()); err != nil {
+	if err := s.favoriteRepo.RemoveFavorite(ctx, userID, videoID); err != nil {
 		return fmt.Errorf("failed to remove from favorites: %w", err)
 	}
+
+	// Invalidar caché de favoritos
+	favoritesKey := fmt.Sprintf("favorites:%s", userID.String())
+	_ = s.cacheRepo.Delete(ctx, favoritesKey) // best-effort
 
 	return nil
 }
 
 func (s *userService) GetFavorites(ctx context.Context, userID uuid.UUID, page, limit int) ([]domain.Video, int64, error) {
-	// TODO: Implementar con repositorio adecuado y paginación
-	// Por ahora, retornando lista vacía
-	return []domain.Video{}, 0, nil
+	// Validar paginación
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	// Obtener favoritos con información de videos
+	favorites, total, err := s.favoriteRepo.GetUserFavorites(ctx, userID, page, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get favorites: %w", err)
+	}
+
+	// Convertir []*Favorite a []Video
+	videos := make([]domain.Video, len(favorites))
+	for i, fav := range favorites {
+		if fav.Video != nil {
+			videos[i] = *fav.Video
+		}
+	}
+
+	return videos, total, nil
 }
 
 // Funcionalidad de historial de visualización
 func (s *userService) GetWatchHistory(ctx context.Context, userID uuid.UUID, page, limit int) ([]domain.WatchHistory, int64, error) {
-	// TODO: Implementar con WatchHistoryRepository
-	// Por ahora, retornando lista vacía
-	return []domain.WatchHistory{}, 0, nil
+	// Validar paginación
+	if page <= 0 {
+		page = 1
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	// Obtener historial del repositorio
+	histories, total, err := s.watchHistoryRepo.GetUserWatchHistory(ctx, userID, page, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get watch history: %w", err)
+	}
+
+	// Convertir []*WatchHistory a []WatchHistory
+	result := make([]domain.WatchHistory, len(histories))
+	for i, h := range histories {
+		result[i] = *h
+	}
+
+	return result, total, nil
 }
 
 func (s *userService) UpdateWatchProgress(ctx context.Context, userID, videoID uuid.UUID, position int, quality string) error {
-	// Almacenar progreso de visualización en caché
-	progressKey := fmt.Sprintf("watch_progress:%s:%s", userID.String(), videoID.String())
-
-	progress := map[string]interface{}{
-		"position":   position,
-		"quality":    quality,
-		"updated_at": fmt.Sprintf("%d", time.Now().Unix()),
+	// Crear registro de historial
+	history := &domain.WatchHistory{
+		UserID:   userID,
+		VideoID:  videoID,
+		Position: position,
+		Quality:  quality,
 	}
 
-	if err := s.cacheRepo.Set(ctx, progressKey, progress, 30*24*time.Hour); err != nil {
-		return fmt.Errorf("failed to update watch progress: %w", err)
+	// Guardar en base de datos (persiste entre dispositivos)
+	if err := s.watchHistoryRepo.SaveWatchHistory(ctx, history); err != nil {
+		return fmt.Errorf("failed to save watch history: %w", err)
 	}
-
-	// TODO: También almacenar en base de datos para persistencia entre dispositivos
 
 	return nil
+}
+
+func (s *userService) GetContinueWatching(ctx context.Context, userID uuid.UUID, limit int) ([]domain.WatchHistory, error) {
+	// Validar límite
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	// Obtener videos para continuar viendo (>10s y <90% completo)
+	histories, err := s.watchHistoryRepo.GetContinueWatching(ctx, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get continue watching: %w", err)
+	}
+
+	// Convertir []*WatchHistory a []WatchHistory
+	result := make([]domain.WatchHistory, len(histories))
+	for i, h := range histories {
+		result[i] = *h
+	}
+
+	return result, nil
 }
 
 // Funcionalidad de búsqueda

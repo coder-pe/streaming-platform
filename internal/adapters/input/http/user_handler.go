@@ -357,6 +357,72 @@ func (h *UserHandler) RemoveFromFavorites(w http.ResponseWriter, r *http.Request
 	h.logger.Info("Video %s removed from favorites for user %s", videoID, userUUID)
 }
 
+func (h *UserHandler) UpdateWatchProgress(w http.ResponseWriter, r *http.Request) {
+	userUUID, err := h.getUserIDFromContext(r)
+	if err != nil {
+		httputil.WriteUnauthorized(w, "")
+		return
+	}
+
+	vars := mux.Vars(r)
+	videoID, err := uuid.Parse(vars["videoId"])
+	if err != nil {
+		httputil.WriteValidationError(w, "Invalid video ID")
+		return
+	}
+
+	var req struct {
+		Position int    `json:"position"` // Posición en segundos
+		Quality  string `json:"quality"`
+	}
+
+	if err := httputil.DecodeJSON(r, &req); err != nil {
+		httputil.WriteValidationError(w, "Invalid request body")
+		return
+	}
+
+	// Validar posición
+	if req.Position < 0 {
+		httputil.WriteValidationError(w, "Invalid position")
+		return
+	}
+
+	err = h.userService.UpdateWatchProgress(r.Context(), userUUID, videoID, req.Position, req.Quality)
+	if err != nil {
+		h.logger.Error("Error updating watch progress: %v", err)
+		httputil.WriteInternalError(w, "Failed to update watch progress")
+		return
+	}
+
+	httputil.WriteSuccessMessage(w, http.StatusOK, "Watch progress updated successfully")
+}
+
+func (h *UserHandler) GetContinueWatching(w http.ResponseWriter, r *http.Request) {
+	userUUID, err := h.getUserIDFromContext(r)
+	if err != nil {
+		httputil.WriteUnauthorized(w, "")
+		return
+	}
+
+	// Obtener límite (por defecto 10)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	// Obtener videos para continuar viendo
+	history, err := h.userService.GetContinueWatching(r.Context(), userUUID, limit)
+	if err != nil {
+		h.logger.Error("Error getting continue watching: %v", err)
+		httputil.WriteInternalError(w, "Failed to get continue watching")
+		return
+	}
+
+	httputil.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"data": history,
+	})
+}
+
 func (h *UserHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	userUUID, err := h.getUserIDFromContext(r)
 	if err != nil {
