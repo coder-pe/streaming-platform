@@ -19,17 +19,17 @@ import (
 
 // videoService implementa el puerto de entrada VideoService
 type videoService struct {
-	videoRepo output.VideoRepository
-	cacheRepo output.CacheRepository
-	jobQueue  chan map[string]interface{} // Simple job queue for transcoding
+	videoRepo  output.VideoRepository
+	cacheRepo  output.CacheRepository
+	searchRepo output.SearchRepository
 }
 
 // NewVideoService crea una nueva instancia del servicio de videos
-func NewVideoService(videoRepo output.VideoRepository, cacheRepo output.CacheRepository) input.VideoService {
+func NewVideoService(videoRepo output.VideoRepository, cacheRepo output.CacheRepository, searchRepo output.SearchRepository) input.VideoService {
 	return &videoService{
-		videoRepo: videoRepo,
-		cacheRepo: cacheRepo,
-		jobQueue:  make(chan map[string]interface{}, 100),
+		videoRepo:  videoRepo,
+		cacheRepo:  cacheRepo,
+		searchRepo: searchRepo,
 	}
 }
 
@@ -73,6 +73,18 @@ func (s *videoService) CreateVideo(ctx context.Context, video *domain.Video) err
 		return fmt.Errorf("failed to create video: %w", err)
 	}
 
+	// Indexar en Elasticsearch (no bloquear si falla)
+	// Solo indexar si está público y listo
+	if video.IsPublic && video.Status == domain.VideoStatusReady {
+		go func() {
+			indexCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := s.searchRepo.IndexVideo(indexCtx, video); err != nil {
+				fmt.Printf("Warning: failed to index video in Elasticsearch: %v\n", err)
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -114,6 +126,26 @@ func (s *videoService) UpdateVideo(ctx context.Context, video *domain.Video) err
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
 
+	// Actualizar índice de Elasticsearch
+	if video.IsPublic && video.Status == domain.VideoStatusReady {
+		go func() {
+			indexCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := s.searchRepo.UpdateVideoIndex(indexCtx, video); err != nil {
+				fmt.Printf("Warning: failed to update video index in Elasticsearch: %v\n", err)
+			}
+		}()
+	} else {
+		// Si el video ya no es público o no está listo, eliminarlo del índice
+		go func() {
+			indexCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := s.searchRepo.DeleteVideoIndex(indexCtx, video.ID.String()); err != nil {
+				fmt.Printf("Warning: failed to delete video index in Elasticsearch: %v\n", err)
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -129,7 +161,16 @@ func (s *videoService) DeleteVideo(ctx context.Context, videoID uuid.UUID) error
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
 
-	// TODO: Eliminar archivos de video del almacenamiento
+	// Eliminar del índice de Elasticsearch
+	go func() {
+		indexCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := s.searchRepo.DeleteVideoIndex(indexCtx, videoID.String()); err != nil {
+			fmt.Printf("Warning: failed to delete video index in Elasticsearch: %v\n", err)
+		}
+	}()
+
+	// TODO: Eliminar archivos de video del almacenamiento (MinIO)
 	// Esto debería manejarse mediante un trabajo en segundo plano
 
 	return nil
@@ -144,7 +185,42 @@ func (s *videoService) SearchPublicVideos(ctx context.Context, req domain.VideoS
 		req.Limit = 20
 	}
 
-	// Buscar videos
+	// Si hay query de búsqueda de texto, usar Elasticsearch para búsqueda avanzada
+	if req.Query != "" {
+		filters := make(map[string]interface{})
+		if req.Category != "" {
+			filters["category"] = req.Category
+		}
+		if len(req.Tags) > 0 {
+			filters["tags"] = req.Tags
+		}
+
+		videoPtrs, total, err := s.searchRepo.SearchVideos(ctx, req.Query, filters, req.Page, req.Limit)
+		if err != nil {
+			// Fallback a PostgreSQL si Elasticsearch falla
+			fmt.Printf("Warning: Elasticsearch search failed, falling back to PostgreSQL: %v\n", err)
+			response, err := s.videoRepo.Search(ctx, req)
+			if err != nil {
+				return nil, fmt.Errorf("failed to search videos: %w", err)
+			}
+			return response, nil
+		}
+
+		// Convertir []*domain.Video a []domain.Video
+		videos := make([]domain.Video, len(videoPtrs))
+		for i, v := range videoPtrs {
+			videos[i] = *v
+		}
+
+		return &domain.VideoSearchResponse{
+			Videos: videos,
+			Total:  total,
+			Page:   req.Page,
+			Limit:  req.Limit,
+		}, nil
+	}
+
+	// Sin query de texto, usar PostgreSQL para filtros simples
 	response, err := s.videoRepo.Search(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search videos: %w", err)
@@ -165,15 +241,32 @@ func (s *videoService) IncrementViewCount(ctx context.Context, videoID uuid.UUID
 		fmt.Printf("Warning: failed to invalidate video cache: %v\n", err)
 	}
 
+	// Actualizar contador de vistas en Elasticsearch
+	go func() {
+		indexCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Obtener el video actualizado
+		video, err := s.videoRepo.GetByID(indexCtx, videoID)
+		if err != nil {
+			fmt.Printf("Warning: failed to get video for index update: %v\n", err)
+			return
+		}
+
+		// Actualizar el índice si el video es público y está listo
+		if video.IsPublic && video.Status == domain.VideoStatusReady {
+			if err := s.searchRepo.UpdateVideoIndex(indexCtx, video); err != nil {
+				fmt.Printf("Warning: failed to update view count in Elasticsearch: %v\n", err)
+			}
+		}
+	}()
+
 	return nil
 }
 
+// QueueTranscodingJob ya no se usa - los jobs se envían directamente a RabbitMQ desde VideoHandler
+// Mantenido para compatibilidad, pero deprecated
 func (s *videoService) QueueTranscodingJob(ctx context.Context, job map[string]interface{}) error {
-	select {
-	case s.jobQueue <- job:
-		fmt.Printf("Transcoding job queued for video: %v\n", job["video_id"])
-		return nil
-	case <-time.After(5 * time.Second):
-		return fmt.Errorf("timeout queuing transcoding job")
-	}
+	fmt.Printf("Warning: QueueTranscodingJob is deprecated, jobs should be sent directly to RabbitMQ\n")
+	return fmt.Errorf("deprecated method - use RabbitMQ queue directly")
 }

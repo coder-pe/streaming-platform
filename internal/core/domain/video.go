@@ -130,3 +130,12 @@ type PlatformAnalytics struct {
 	AvgWatchTime  float64 `json:"avg_watch_time"`
 	PopularTags   []string `json:"popular_tags"`
 }
+
+// Favorite representa un video marcado como favorito por un usuario
+type Favorite struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	UserID    uuid.UUID `json:"user_id" db:"user_id"`
+	VideoID   uuid.UUID `json:"video_id" db:"video_id"`
+	Video     *Video    `json:"video,omitempty"` // Puede incluir el video completo
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}

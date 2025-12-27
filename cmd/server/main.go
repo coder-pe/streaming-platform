@@ -98,7 +98,7 @@ func main() {
 	// Core Services - Implementan los puertos de entrada, usan los puertos de salida
 	authService := services.NewAuthService(userRepo, cacheRepo, cfg.JWTSecret)
 	userService := services.NewUserService(userRepo, cacheRepo)
-	videoService := services.NewVideoService(videoRepo, cacheRepo)
+	videoService := services.NewVideoService(videoRepo, cacheRepo, searchRepo)
 	streamingService := services.NewStreamingService(videoRepo, cacheRepo, cfg.CDNBaseURL, cfg.JWTSecret)
 
 	// Worker Pool - Debe crearse antes de los handlers
