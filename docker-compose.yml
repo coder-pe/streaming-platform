@@ -14,7 +14,7 @@ services:
       - redis
       - rabbitmq
       - minio
-      - elasticsearch
+      - meilisearch
     restart: on-failure
 
   postgres:
@@ -60,15 +60,15 @@ services:
     command: server /data --console-address ":9001"
     restart: unless-stopped
 
-  elasticsearch:
-    image: elasticsearch:7.17.5
-    environment:
-      - discovery.type=single-node
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
     ports:
-      - "9200:9200"
-      - "9300:9300"
+      - "7700:7700"
     volumes:
-      - es_data:/usr/share/elasticsearch/data
+      - meilisearch_data:/meili_data
+    environment:
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: true
     restart: unless-stopped
 
   prometheus:
@@ -93,5 +93,5 @@ volumes:
   postgres_data:
   redis_data:
   minio_data:
-  es_data:
+  meilisearch_data:
   grafana_data:

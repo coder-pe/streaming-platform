@@ -14,7 +14,7 @@ import (
 
 	httpHandlers "streaming-platform/internal/adapters/input/http"
 	"streaming-platform/internal/adapters/input/http/middleware"
-	elasticsearchAdapter "streaming-platform/internal/adapters/output/persistence/elasticsearch"
+	meilisearchAdapter "streaming-platform/internal/adapters/output/persistence/meilisearch"
 	minioAdapter "streaming-platform/internal/adapters/output/persistence/minio"
 	postgresAdapter "streaming-platform/internal/adapters/output/persistence/postgres"
 	rabbitmqAdapter "streaming-platform/internal/adapters/output/persistence/rabbitmq"
@@ -72,10 +72,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Elasticsearch connection
-	esClient, err := database.NewElasticsearch([]string{cfg.ElasticsearchURL})
+	// Meilisearch connection
+	msClient, err := database.NewMeilisearch(cfg.MeilisearchURL, cfg.MeilisearchAPIKey)
 	if err != nil {
-		log.Error("Error connecting to Elasticsearch: %v", err)
+		log.Error("Error connecting to Meilisearch: %v", err)
 		os.Exit(1)
 	}
 
@@ -87,7 +87,7 @@ func main() {
 	cacheRepo := redisAdapter.NewCacheRepository(redisClient)
 	queueRepo := rabbitmqAdapter.NewQueueRepository(rabbitMQClient, log)
 	_ = minioAdapter.NewStorageRepository(minioClient, log) // Preparado para uso futuro (Fase 3)
-	searchRepo := elasticsearchAdapter.NewSearchRepository(esClient, log)
+	searchRepo := meilisearchAdapter.NewSearchRepository(msClient, log)
 
 	// Initialize Elasticsearch index
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

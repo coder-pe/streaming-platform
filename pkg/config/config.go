@@ -47,8 +47,9 @@ type Config struct {
 	MinIOBucket    string
 	MinIOUseSSL    bool
 
-	// Elasticsearch
-	ElasticsearchURL string
+	// Meilisearch
+	MeilisearchURL    string
+	MeilisearchAPIKey string
 }
 
 func Load() *Config {
@@ -90,8 +91,9 @@ func Load() *Config {
 		MinIOBucket:    getEnv("MINIO_BUCKET", "videos"),
 		MinIOUseSSL:    getEnvAsBool("MINIO_USE_SSL", false),
 
-		// Elasticsearch
-		ElasticsearchURL: getEnv("ELASTICSEARCH_URL", "http://localhost:9200"),
+		// Meilisearch
+		MeilisearchURL:    getEnv("MEILISEARCH_URL", "http://localhost:7700"),
+		MeilisearchAPIKey: getEnv("MEILISEARCH_API_KEY", ""),
 	}
 }
 
