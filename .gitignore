@@ -33,4 +33,4 @@ go.work.sum
 
 bin/
 CLAUDE.md
-
+.claude/
