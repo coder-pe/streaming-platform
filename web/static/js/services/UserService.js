@@ -14,7 +14,9 @@ class UserService {
    */
   async getProfile(userId) {
     try {
-      const response = await apiService.get(`/users/${userId}`);
+      const response = userId
+        ? await apiService.get(`/users/${userId}`)
+        : await apiService.get('/user/profile');
       return response.user || response;
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -30,7 +32,7 @@ class UserService {
       const user = state.get('user');
       if (!user) throw new Error('No authenticated user');
 
-      const response = await apiService.put(`/users/${user.id}`, updates);
+      const response = await apiService.put('/user/profile', updates);
 
       if (response.user) {
         storageService.setUserData(response.user);
@@ -83,7 +85,7 @@ class UserService {
       const user = state.get('user');
       if (!user) throw new Error('No authenticated user');
 
-      const response = await apiService.put(`/users/${user.id}/password`, {
+      const response = await apiService.post('/auth/change-password', {
         current_password: currentPassword,
         new_password: newPassword,
       });
@@ -113,54 +115,28 @@ class UserService {
    * Seguir usuario
    */
   async followUser(userId) {
-    try {
-      const response = await apiService.post(`/users/${userId}/follow`);
-      eventBus.emit('user:followed', userId);
-      return response;
-    } catch (error) {
-      console.error('Error following user:', error);
-      throw error;
-    }
+    throw new Error('Follow no está implementado en el backend actual');
   }
 
   /**
    * Dejar de seguir usuario
    */
   async unfollowUser(userId) {
-    try {
-      const response = await apiService.delete(`/users/${userId}/follow`);
-      eventBus.emit('user:unfollowed', userId);
-      return response;
-    } catch (error) {
-      console.error('Error unfollowing user:', error);
-      throw error;
-    }
+    throw new Error('Follow no está implementado en el backend actual');
   }
 
   /**
    * Obtener seguidores
    */
   async getFollowers(userId) {
-    try {
-      const response = await apiService.get(`/users/${userId}/followers`);
-      return response.followers || response;
-    } catch (error) {
-      console.error('Error fetching followers:', error);
-      throw error;
-    }
+    throw new Error('Followers no está implementado en el backend actual');
   }
 
   /**
    * Obtener siguiendo
    */
   async getFollowing(userId) {
-    try {
-      const response = await apiService.get(`/users/${userId}/following`);
-      return response.following || response;
-    } catch (error) {
-      console.error('Error fetching following:', error);
-      throw error;
-    }
+    throw new Error('Following no está implementado en el backend actual');
   }
 
   /**

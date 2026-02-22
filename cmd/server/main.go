@@ -141,6 +141,7 @@ func main() {
 	router.HandleFunc("/api/auth/refresh", authHandler.RefreshToken).Methods("POST")
 	router.HandleFunc("/api/videos", videoHandler.GetPublicVideos).Methods("GET")
 	router.HandleFunc("/api/videos/{id}", videoHandler.GetVideo).Methods("GET")
+	router.HandleFunc("/api/videos/{id}/view", videoHandler.IncrementViewCount).Methods("POST")
 	router.HandleFunc("/api/users/{id}/stats", userHandler.GetUserStats).Methods("GET")
 	router.HandleFunc("/api/users/{id}", userHandler.GetPublicProfile).Methods("GET")
 
@@ -151,6 +152,7 @@ func main() {
 	// User routes
 	protected.HandleFunc("/user/profile", userHandler.GetProfile).Methods("GET")
 	protected.HandleFunc("/user/profile", userHandler.UpdateProfile).Methods("PUT")
+	protected.HandleFunc("/auth/change-password", authHandler.ChangePassword).Methods("POST")
 	protected.HandleFunc("/user/stats", userHandler.GetUserStats).Methods("GET")
 	protected.HandleFunc("/users/{id}/avatar", userHandler.UploadAvatar).Methods("POST")
 	protected.HandleFunc("/user/settings", userHandler.GetSettings).Methods("GET")

@@ -23,6 +23,8 @@ export default class VideoPlayer extends Component {
       return '<div class="video-player-empty">Selecciona un video para reproducir</div>';
     }
 
+    const qualityOptions = ['1080p', '720p', '480p', '360p'];
+
     return `
       <div class="video-player-container">
         <video
@@ -60,9 +62,9 @@ export default class VideoPlayer extends Component {
         <div class="video-quality-selector">
           <label for="qualitySelect">Calidad:</label>
           <select id="qualitySelect" class="form-control">
-            ${VIDEO_CONFIG.PLAYBACK_RATES.map(rate => `
-              <option value="${rate}p" ${this.state.quality === `${rate}p` ? 'selected' : ''}>
-                ${rate}p
+            ${qualityOptions.map(quality => `
+              <option value="${quality}" ${this.state.quality === quality ? 'selected' : ''}>
+                ${quality}
               </option>
             `).join('')}
           </select>
@@ -164,9 +166,14 @@ export default class VideoPlayer extends Component {
     try {
       if (this.state.video.liked) {
         await videoService.unlikeVideo(this.state.video.id);
+        this.state.video.liked = false;
+        this.state.video.likes = Math.max((this.state.video.likes || 1) - 1, 0);
       } else {
         await videoService.likeVideo(this.state.video.id);
+        this.state.video.liked = true;
+        this.state.video.likes = (this.state.video.likes || 0) + 1;
       }
+      this.render();
     } catch (error) {
       console.error('Error toggling like:', error);
     }

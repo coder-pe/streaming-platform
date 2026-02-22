@@ -44,8 +44,8 @@ class VideoService {
    */
   async searchVideos(query, params = {}) {
     try {
-      const response = await apiService.get('/videos/search', {
-        q: query,
+      const response = await apiService.get('/videos', {
+        query,
         ...params,
       });
 
@@ -67,12 +67,15 @@ class VideoService {
     try {
       const formData = new FormData();
       formData.append('video', file);
+      formData.append('metadata', JSON.stringify({
+        title: metadata.title || '',
+        description: metadata.description || '',
+        category: metadata.category || 'other',
+        tags: metadata.tags || [],
+        is_public: metadata.is_public !== false,
+      }));
 
-      if (metadata.title) formData.append('title', metadata.title);
-      if (metadata.description) formData.append('description', metadata.description);
-      if (metadata.category) formData.append('category', metadata.category);
-
-      const response = await apiService.upload('/videos/upload', formData, onProgress);
+      const response = await apiService.upload('/videos', formData, onProgress);
 
       if (response.video) {
         state.addVideo(response.video);
@@ -140,7 +143,7 @@ class VideoService {
    */
   async likeVideo(videoId) {
     try {
-      const response = await apiService.post(`/videos/${videoId}/like`);
+      const response = await apiService.post(`/favorites/${videoId}`);
 
       if (response.video) {
         state.updateVideo(videoId, response.video);
@@ -159,7 +162,7 @@ class VideoService {
    */
   async unlikeVideo(videoId) {
     try {
-      const response = await apiService.delete(`/videos/${videoId}/like`);
+      const response = await apiService.delete(`/favorites/${videoId}`);
 
       if (response.video) {
         state.updateVideo(videoId, response.video);
@@ -189,7 +192,7 @@ class VideoService {
    * Obtener URL de streaming
    */
   getStreamUrl(videoId, quality = '720p') {
-    return `${apiService.baseURL}/videos/${videoId}/stream/${quality}`;
+    return `${apiService.baseURL}/stream/${videoId}/${quality}/playlist.m3u8`;
   }
 
   /**

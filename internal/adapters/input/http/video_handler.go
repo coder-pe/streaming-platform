@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
@@ -43,7 +44,7 @@ func (h *VideoHandler) GetPublicVideos(w http.ResponseWriter, r *http.Request) {
 	if page <= 0 {
 		page = 1
 	}
-	
+
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 || limit > 50 {
 		limit = 20
@@ -93,7 +94,11 @@ func (h *VideoHandler) GetVideo(w http.ResponseWriter, r *http.Request) {
 
 func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	// Obtener user ID del contexto (del middleware JWT)
-	userID := r.Context().Value("user_id").(uuid.UUID)
+	userID, ok := r.Context().Value("user_id").(uuid.UUID)
+	if !ok || userID == uuid.Nil {
+		httputil.WriteUnauthorized(w, "")
+		return
+	}
 
 	// Parse multipart form
 	err := r.ParseMultipartForm(100 << 20) // 100 MB max
@@ -111,7 +116,7 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Decodificar metadatos
-	if err := httputil.DecodeJSON(r, &uploadReq); err != nil {
+	if err := json.Unmarshal([]byte(metadataJSON), &uploadReq); err != nil {
 		httputil.WriteValidationError(w, "Invalid metadata")
 		return
 	}
@@ -205,6 +210,23 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *VideoHandler) IncrementViewCount(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	videoID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httputil.WriteValidationError(w, "Invalid video ID")
+		return
+	}
+
+	if err := h.videoService.IncrementViewCount(r.Context(), videoID); err != nil {
+		h.logger.Error("Error incrementing view count: %v", err)
+		httputil.WriteInternalError(w, "Error incrementing view count")
+		return
+	}
+
+	httputil.WriteSuccessMessage(w, http.StatusOK, "View count updated")
+}
+
 func (h *VideoHandler) UpdateVideo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	videoID, err := uuid.Parse(vars["id"])
@@ -285,7 +307,7 @@ func (h *VideoHandler) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 func isValidVideoFormat(filename string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
 	validFormats := []string{".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"}
-	
+
 	for _, format := range validFormats {
 		if ext == format {
 			return true

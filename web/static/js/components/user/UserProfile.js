@@ -49,7 +49,7 @@ export default class UserProfile extends Component {
       <div class="user-profile">
         <div class="profile-header">
           <div class="profile-avatar">
-            <img src="${avatarUrl}" alt="${this.state.user.username}">
+            <img src="${avatarUrl}" alt="${this.state.user.firstName || this.state.user.email}">
             ${this.state.editing ? `
               <button class="btn-change-avatar" data-action="change-avatar">
                 <i class="icon-camera"></i>
@@ -61,9 +61,15 @@ export default class UserProfile extends Component {
             ${this.state.editing ? `
               <input
                 type="text"
-                id="usernameInput"
+                id="firstNameInput"
                 class="form-control"
-                value="${this.state.user.username}"
+                value="${this.state.user.firstName || ''}"
+              />
+              <input
+                type="text"
+                id="lastNameInput"
+                class="form-control"
+                value="${this.state.user.lastName || ''}"
               />
               <textarea
                 id="bioInput"
@@ -72,23 +78,23 @@ export default class UserProfile extends Component {
                 rows="3"
               >${this.state.user.bio || ''}</textarea>
             ` : `
-              <h1>${this.state.user.username}</h1>
+              <h1>${this.state.user.firstName || ''} ${this.state.user.lastName || ''}</h1>
               <p>${this.state.user.email}</p>
               ${this.state.user.bio ? `<p class="profile-bio">${this.state.user.bio}</p>` : ''}
             `}
 
             <div class="profile-stats">
               <div class="stat">
-                <span class="stat-value">${this.state.stats?.videos || 0}</span>
+                <span class="stat-value">${this.state.stats?.totalVideos || 0}</span>
                 <span class="stat-label">Videos</span>
               </div>
               <div class="stat">
-                <span class="stat-value">${this.state.stats?.followers || 0}</span>
-                <span class="stat-label">Seguidores</span>
+                <span class="stat-value">${this.state.stats?.favoritesCount || 0}</span>
+                <span class="stat-label">Favoritos</span>
               </div>
               <div class="stat">
-                <span class="stat-value">${this.state.stats?.following || 0}</span>
-                <span class="stat-label">Siguiendo</span>
+                <span class="stat-value">${this.state.stats?.videosWatched || 0}</span>
+                <span class="stat-label">Vistos</span>
               </div>
             </div>
 
@@ -136,10 +142,11 @@ export default class UserProfile extends Component {
     try {
       loading.show('Guardando cambios...');
 
-      const username = this.$('#usernameInput')?.value;
+      const firstName = this.$('#firstNameInput')?.value;
+      const lastName = this.$('#lastNameInput')?.value;
       const bio = this.$('#bioInput')?.value;
 
-      const updates = { username, bio };
+      const updates = { firstName, lastName, bio };
       await userService.updateProfile(updates);
 
       toast.success('Perfil actualizado correctamente');
