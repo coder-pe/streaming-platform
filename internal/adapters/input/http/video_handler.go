@@ -184,7 +184,7 @@ func (h *VideoHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Enviar trabajo de transcodificación a RabbitMQ
+	// Enviar trabajo de transcodificación a la cola (Redis)
 	job := output.JobMessage{
 		Type: "transcoding",
 		Data: map[string]interface{}{

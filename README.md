@@ -8,7 +8,7 @@ El sistema actual está orientado a:
 
 - Autenticación (JWT + refresh token).
 - Catálogo de videos públicos con búsqueda por query/categoría/tags.
-- Subida de video con cola de transcodificación (RabbitMQ + workers + FFmpeg).
+- Subida de video con cola de transcodificación (Redis + workers + FFmpeg).
 - Reproducción HLS por calidades.
 - Perfil de usuario, favoritos e historial/continuar viendo.
 - Infra de soporte: PostgreSQL, Redis, MinIO, Meilisearch, Prometheus y Grafana.
@@ -54,7 +54,7 @@ go test ./...
 
 ## Stack técnico
 
-- Backend: Go, Gorilla Mux, PostgreSQL, Redis, RabbitMQ.
+- Backend: Go, Gorilla Mux, PostgreSQL, Redis.
 - Streaming: FFmpeg + HLS.
 - Búsqueda: Meilisearch.
 - Storage: MinIO + filesystem local.

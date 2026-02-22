@@ -12,7 +12,6 @@ services:
     depends_on:
       - postgres
       - redis
-      - rabbitmq
       - minio
       - meilisearch
     restart: on-failure
@@ -35,16 +34,6 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    restart: unless-stopped
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password123
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     restart: unless-stopped
 
   minio:

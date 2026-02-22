@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"streaming-platform/internal/core/ports/output"
 	"streaming-platform/pkg/logger"
 )
 
@@ -117,8 +118,15 @@ func (wp *WorkerPool) processJob(workerID int, job Job) {
 	wp.logger.Info("Worker %d completed job %s in %v", workerID, job.Type, duration)
 }
 
-// ProcessJobFromQueue procesa un trabajo que viene de una cola externa (RabbitMQ)
+// ProcessJobFromQueue procesa un trabajo que viene de una cola externa (Redis u otra)
 func (wp *WorkerPool) ProcessJobFromQueue(jobMessage interface{}) error {
+	if typedJob, ok := jobMessage.(output.JobMessage); ok {
+		return wp.SubmitJob(Job{
+			Type: typedJob.Type,
+			Data: typedJob.Data,
+		})
+	}
+
 	// Convertir el mensaje de la cola en un Job del WorkerPool
 	jobMap, ok := jobMessage.(map[string]interface{})
 	if !ok {

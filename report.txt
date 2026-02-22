@@ -35,9 +35,9 @@
 
   No existe el directorio /storage/ para guardar videos. MinIO está configurado en Docker pero no integrado.
 
-  3. RabbitMQ No Usado
+  3. Cola Externa No Usada (histórico)
 
-  La cola de trabajos usa un simple channel en memoria. RabbitMQ está en docker-compose pero no conectado.
+  La cola de trabajos usaba un simple channel en memoria (reporte histórico).
 
   ---
   ⚠️ FUNCIONALIDAD PARCIAL
@@ -65,8 +65,8 @@
   • Tu proyecto usa Arquitectura Hexagonal (puertos/adaptadores),
     separando core domain de infraestructura - excelente para testing
 
-  • Elasticsearch y RabbitMQ están en docker-compose.yml pero no
-    integrados - agregaron complejidad sin beneficio actual
+  • Elasticsearch estaba en docker-compose.yml sin integración completa
+    en ese momento - complejidad sin beneficio actual
 
   • El frontend es impresionantemente modular sin frameworks, usando
     ES6 modules nativos - esto es poco común y bien ejecutado
@@ -83,7 +83,7 @@
 
   **Para producción:**
   5. Integrar MinIO para almacenamiento distribuido
-  6. Conectar RabbitMQ para queue persistente
+  6. Implementar queue persistente (actualmente migrado a Redis)
   7. Agregar Elasticsearch para búsqueda avanzada
   8. Implementar features pendientes (comentarios, ratings, etc.)
   9. Agregar tests comprehensivos (solo hay 1 archivo de test)

@@ -9,7 +9,6 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/meilisearch/meilisearch-go v0.36.0
 	github.com/minio/minio-go/v7 v7.0.97
-	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/redis/go-redis/v9 v9.10.0
 	golang.org/x/crypto v0.39.0
 )

@@ -4,7 +4,7 @@ set -euo pipefail
 # === Config (override via env) ===
 PGHOST="${PGHOST:-localhost}"
 PGPORT="${PGPORT:-5432}"
-PGUSER="${PGUSER:-postgres}"
+PGUSER="${PGUSER:-edgar}"
 PGPASSWORD="${PGPASSWORD:-postgres}"   # superuser password (current: postgres)
 export PGPASSWORD
 

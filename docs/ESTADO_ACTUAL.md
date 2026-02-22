@@ -23,7 +23,7 @@ La implementación actual no cumple todavía esos objetivos de negocio.
 - Subida y procesamiento de video (cola + transcodificación).
 - Streaming HLS por calidades.
 - Perfil, favoritos, historial y continuar viendo.
-- Infraestructura base (PostgreSQL, Redis, RabbitMQ, MinIO, Meilisearch, Prometheus, Grafana).
+- Infraestructura base (PostgreSQL, Redis, MinIO, Meilisearch, Prometheus, Grafana).
 
 ## Qué falta para cumplir el objetivo
 

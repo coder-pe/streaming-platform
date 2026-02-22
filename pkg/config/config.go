@@ -37,10 +37,8 @@ type Config struct {
 	SMTPUsername string
 	SMTPPassword string
 
-	// RabbitMQ
-	RabbitMQURL string
-
 	// MinIO (S3-compatible storage)
+	MinIOEnabled   bool
 	MinIOEndpoint  string
 	MinIOAccessKey string
 	MinIOSecretKey string
@@ -81,10 +79,8 @@ func Load() *Config {
 		SMTPUsername: getEnv("SMTP_USERNAME", ""),
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 
-		// RabbitMQ
-		RabbitMQURL: getEnv("RABBITMQ_URL", "amqp://admin:password123@localhost:5672/"),
-
 		// MinIO
+		MinIOEnabled:   getEnvAsBool("MINIO_ENABLED", false),
 		MinIOEndpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
 		MinIOAccessKey: getEnv("MINIO_ACCESS_KEY", "minioadmin"),
 		MinIOSecretKey: getEnv("MINIO_SECRET_KEY", "minioadmin123"),
@@ -93,7 +89,7 @@ func Load() *Config {
 
 		// Meilisearch
 		MeilisearchURL:    getEnv("MEILISEARCH_URL", "http://localhost:7700"),
-		MeilisearchAPIKey: getEnv("MEILISEARCH_API_KEY", ""),
+		MeilisearchAPIKey: getEnv("MEILISEARCH_API_KEY", "local-dev-key-123"),
 	}
 }
 

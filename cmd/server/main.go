@@ -17,7 +17,6 @@ import (
 	meilisearchAdapter "streaming-platform/internal/adapters/output/persistence/meilisearch"
 	minioAdapter "streaming-platform/internal/adapters/output/persistence/minio"
 	postgresAdapter "streaming-platform/internal/adapters/output/persistence/postgres"
-	rabbitmqAdapter "streaming-platform/internal/adapters/output/persistence/rabbitmq"
 	redisAdapter "streaming-platform/internal/adapters/output/persistence/redis"
 	"streaming-platform/internal/core/ports/output"
 	"streaming-platform/internal/core/services"
@@ -51,25 +50,22 @@ func main() {
 	}
 	defer redisClient.Close()
 
-	// RabbitMQ connection
-	rabbitMQClient, err := database.NewRabbitMQ(cfg.RabbitMQURL)
-	if err != nil {
-		log.Error("Error connecting to RabbitMQ: %v", err)
-		os.Exit(1)
-	}
-	defer rabbitMQClient.Close()
-
-	// MinIO connection
-	minioClient, err := database.NewMinIO(
-		cfg.MinIOEndpoint,
-		cfg.MinIOAccessKey,
-		cfg.MinIOSecretKey,
-		cfg.MinIOBucket,
-		cfg.MinIOUseSSL,
-	)
-	if err != nil {
-		log.Error("Error connecting to MinIO: %v", err)
-		os.Exit(1)
+	// MinIO connection (opcional en local)
+	if cfg.MinIOEnabled {
+		minioClient, err := database.NewMinIO(
+			cfg.MinIOEndpoint,
+			cfg.MinIOAccessKey,
+			cfg.MinIOSecretKey,
+			cfg.MinIOBucket,
+			cfg.MinIOUseSSL,
+		)
+		if err != nil {
+			log.Error("Error connecting to MinIO (MINIO_ENABLED=true): %v", err)
+			os.Exit(1)
+		}
+		_ = minioAdapter.NewStorageRepository(minioClient, log) // Preparado para uso futuro
+	} else {
+		log.Info("MinIO disabled (MINIO_ENABLED=false)")
 	}
 
 	// Meilisearch connection
@@ -85,8 +81,7 @@ func main() {
 	favoriteRepo := postgresAdapter.NewFavoriteRepository(db)
 	watchHistoryRepo := postgresAdapter.NewWatchHistoryRepository(db)
 	cacheRepo := redisAdapter.NewCacheRepository(redisClient)
-	queueRepo := rabbitmqAdapter.NewQueueRepository(rabbitMQClient, log)
-	_ = minioAdapter.NewStorageRepository(minioClient, log) // Preparado para uso futuro (Fase 3)
+	queueRepo := redisAdapter.NewQueueRepository(redisClient, log)
 	searchRepo := meilisearchAdapter.NewSearchRepository(msClient, log)
 
 	// Initialize Elasticsearch index
@@ -110,7 +105,7 @@ func main() {
 	workerPool.Start()
 	defer workerPool.Stop()
 
-	// Iniciar consumo de trabajos desde RabbitMQ
+	// Iniciar consumo de trabajos desde Redis queue
 	go func() {
 		err := queueRepo.ConsumeJobs(context.Background(), "transcoding_queue", func(job output.JobMessage) error {
 			return workerPool.ProcessJobFromQueue(job)

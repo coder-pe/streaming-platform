@@ -264,9 +264,9 @@ func (s *videoService) IncrementViewCount(ctx context.Context, videoID uuid.UUID
 	return nil
 }
 
-// QueueTranscodingJob ya no se usa - los jobs se envían directamente a RabbitMQ desde VideoHandler
+// QueueTranscodingJob ya no se usa - los jobs se envían directamente a la cola desde VideoHandler
 // Mantenido para compatibilidad, pero deprecated
 func (s *videoService) QueueTranscodingJob(ctx context.Context, job map[string]interface{}) error {
-	fmt.Printf("Warning: QueueTranscodingJob is deprecated, jobs should be sent directly to RabbitMQ\n")
-	return fmt.Errorf("deprecated method - use RabbitMQ queue directly")
+	fmt.Printf("Warning: QueueTranscodingJob is deprecated, jobs should be sent directly to QueueRepository\n")
+	return fmt.Errorf("deprecated method - use QueueRepository directly")
 }
